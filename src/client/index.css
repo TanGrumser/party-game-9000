@@ -12,21 +12,31 @@
 
 body {
   margin: 0;
-  display: grid;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  position: relative;
 }
 
-.app {
-  max-width: 600px;
+/* Pages */
+.page {
   width: 100%;
-  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.page.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 2rem;
   text-align: center;
-  position: relative;
-  z-index: 1;
+}
+
+.page.lobby {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  padding: 1rem;
 }
 
 h1 {
@@ -40,15 +50,7 @@ h1 {
   margin-bottom: 2rem;
 }
 
-/* Menu / Home Screen */
-.menu {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: 300px;
-  margin: 0 auto;
-}
-
+/* Buttons */
 .btn {
   padding: 0.8rem 1.5rem;
   border: none;
@@ -59,12 +61,17 @@ h1 {
   transition: all 0.2s;
 }
 
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: #646cff;
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #535bf2;
   transform: translateY(-2px);
 }
@@ -74,13 +81,34 @@ h1 {
   color: white;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: #4a4a4a;
 }
 
 .btn-small {
   padding: 0.4rem 0.8rem;
   font-size: 0.85rem;
+}
+
+.btn-copy {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  background: #3a3a3a;
+  color: white;
+  min-width: 60px;
+}
+
+.btn-copy:hover {
+  background: #4a4a4a;
+}
+
+/* Home Page */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 300px;
+  width: 100%;
 }
 
 .divider {
@@ -111,22 +139,18 @@ h1 {
   border-color: #646cff;
 }
 
+.input-code:disabled {
+  opacity: 0.5;
+}
+
 .error {
   color: #ff6b6b;
   font-size: 0.9rem;
+  margin: 0;
 }
 
-/* Game Screen */
-.game-screen {
-  max-width: 800px;
-  height: 100vh;
-  max-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem;
-}
-
-.game-header {
+/* Lobby Page */
+.lobby-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -134,9 +158,11 @@ h1 {
   background: #1a1a1a;
   border-radius: 12px;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-.game-header h2 {
+.lobby-header h2 {
   margin: 0;
   font-size: 1.2rem;
 }
@@ -154,18 +180,6 @@ h1 {
   letter-spacing: 0.1em;
 }
 
-.btn-copy {
-  padding: 0.3rem 0.6rem;
-  font-size: 0.8rem;
-  background: #3a3a3a;
-  color: white;
-  min-width: 60px;
-}
-
-.btn-copy:hover {
-  background: #4a4a4a;
-}
-
 .header-info {
   display: flex;
   align-items: center;
@@ -174,7 +188,23 @@ h1 {
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* Chat Container */
+.status {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.status.connected {
+  background: #2d5a2d;
+  color: #90ee90;
+}
+
+.status.disconnected {
+  background: #5a2d2d;
+  color: #ee9090;
+}
+
+/* Chat */
 .chat-container {
   flex: 1;
   display: flex;
@@ -192,6 +222,12 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.empty-state {
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+  margin: auto;
 }
 
 .message {
@@ -248,14 +284,16 @@ h1 {
   border-color: #646cff;
 }
 
+.message-input:disabled {
+  opacity: 0.5;
+}
+
 .message-input::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
 
 @media (prefers-reduced-motion) {
-  *,
-  ::before,
-  ::after {
+  * {
     animation: none !important;
     transition: none !important;
   }

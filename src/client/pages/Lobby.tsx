@@ -1,7 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import "./index.css";
-
-type Screen = "home" | "game";
 
 interface ChatMessage {
   type: string;
@@ -10,36 +7,29 @@ interface ChatMessage {
   timestamp: number;
 }
 
-export function App() {
-  const [screen, setScreen] = useState<Screen>("home");
-  const [lobbyId, setLobbyId] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [error, setError] = useState("");
+interface LobbyProps {
+  lobbyId: string;
+  onLeave: () => void;
+}
+
+export function Lobby({ lobbyId, onLeave }: LobbyProps) {
   const [playerId, setPlayerId] = useState("");
   const [playerCount, setPlayerCount] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [connected, setConnected] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cleanup WebSocket on unmount
   useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
-
-  const connectToLobby = (code: string) => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws?lobby=${code}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws?lobby=${lobbyId}`;
     console.log(`[CLIENT] Connecting to WebSocket: ${wsUrl}`);
 
     const ws = new WebSocket(wsUrl);
@@ -47,6 +37,7 @@ export function App() {
 
     ws.onopen = () => {
       console.log("[CLIENT] WebSocket connected");
+      setConnected(true);
     };
 
     ws.onmessage = (event) => {
@@ -57,7 +48,6 @@ export function App() {
         switch (data.type) {
           case "welcome":
             setPlayerId(data.playerId);
-            setLobbyId(data.lobbyId);
             setPlayerCount(data.playerCount);
             console.log(`[CLIENT] Welcome! Player ID: ${data.playerId}`);
             break;
@@ -99,88 +89,27 @@ export function App() {
 
     ws.onerror = (error) => {
       console.error("[CLIENT] WebSocket error:", error);
-      setError("Connection error");
     };
 
     ws.onclose = () => {
       console.log("[CLIENT] WebSocket closed");
+      setConnected(false);
     };
-  };
 
-  const handleCreateGame = async () => {
-    setError("");
-    console.log("[CLIENT] Creating new lobby...");
-
-    try {
-      const response = await fetch("/api/lobby/create", { method: "POST" });
-      const data = await response.json();
-      console.log(`[CLIENT] Lobby created: ${data.lobbyId}`);
-
-      connectToLobby(data.lobbyId);
-      setScreen("game");
-    } catch (e) {
-      console.error("[CLIENT] Error creating lobby:", e);
-      setError("Failed to create game");
-    }
-  };
-
-  const handleJoinGame = async () => {
-    setError("");
-    const code = joinCode.toUpperCase().trim();
-
-    if (!code) {
-      setError("Please enter a lobby code");
-      return;
-    }
-
-    console.log(`[CLIENT] Checking if lobby ${code} exists...`);
-
-    try {
-      const response = await fetch(`/api/lobby/${code}`);
-      const data = await response.json();
-
-      if (data.exists) {
-        console.log(`[CLIENT] Joining lobby: ${code}`);
-        connectToLobby(code);
-        setScreen("game");
-      } else {
-        setError("Lobby not found");
-      }
-    } catch (e) {
-      console.error("[CLIENT] Error joining lobby:", e);
-      setError("Failed to join game");
-    }
-  };
+    return () => {
+      ws.close();
+    };
+  }, [lobbyId]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!inputMessage.trim() || !wsRef.current) return;
 
-    const message = {
-      type: "chat",
-      message: inputMessage.trim(),
-    };
-
+    const message = { type: "chat", message: inputMessage.trim() };
     console.log(`[CLIENT] Sending: ${JSON.stringify(message)}`);
     wsRef.current.send(JSON.stringify(message));
     setInputMessage("");
   };
-
-  const handleLeaveGame = () => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    setScreen("home");
-    setLobbyId("");
-    setPlayerId("");
-    setPlayerCount(0);
-    setMessages([]);
-    setJoinCode("");
-  };
-
-  const [copied, setCopied] = useState(false);
 
   const handleCopyCode = async () => {
     await navigator.clipboard.writeText(lobbyId);
@@ -188,52 +117,29 @@ export function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (screen === "home") {
-    return (
-      <div className="app">
-        <h1>Party Game 9000</h1>
-        <p className="subtitle">A collaborative chaotic party game</p>
-
-        <div className="menu">
-          <button className="btn btn-primary" onClick={handleCreateGame}>
-            Create Game
-          </button>
-
-          <div className="divider">or</div>
-
-          <div className="join-section">
-            <input
-              type="text"
-              placeholder="Enter lobby code"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              maxLength={4}
-              className="input-code"
-            />
-            <button className="btn btn-secondary" onClick={handleJoinGame}>
-              Join Game
-            </button>
-          </div>
-
-          {error && <p className="error">{error}</p>}
-        </div>
-      </div>
-    );
-  }
+  const handleLeave = () => {
+    wsRef.current?.close();
+    onLeave();
+  };
 
   return (
-    <div className="app game-screen">
-      <header className="game-header">
+    <div className="page lobby">
+      <header className="lobby-header">
         <div className="lobby-code-section">
-          <h2>Lobby: <span className="lobby-code">{lobbyId}</span></h2>
+          <h2>
+            Lobby: <span className="lobby-code">{lobbyId}</span>
+          </h2>
           <button className="btn btn-copy" onClick={handleCopyCode}>
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
         <div className="header-info">
+          <span className={`status ${connected ? "connected" : "disconnected"}`}>
+            {connected ? "Connected" : "Disconnected"}
+          </span>
           <span>Players: {playerCount}</span>
-          <span>You: {playerId}</span>
-          <button className="btn btn-small" onClick={handleLeaveGame}>
+          <span>You: {playerId || "..."}</span>
+          <button className="btn btn-small" onClick={handleLeave}>
             Leave
           </button>
         </div>
@@ -241,6 +147,9 @@ export function App() {
 
       <div className="chat-container">
         <div className="messages">
+          {messages.length === 0 && (
+            <p className="empty-state">No messages yet. Say hello!</p>
+          )}
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -252,7 +161,9 @@ export function App() {
                 <span className="system-text">{msg.message}</span>
               ) : (
                 <>
-                  <span className="sender">{msg.playerId === playerId ? "You" : msg.playerId}:</span>
+                  <span className="sender">
+                    {msg.playerId === playerId ? "You" : msg.playerId}:
+                  </span>
                   <span className="text">{msg.message}</span>
                 </>
               )}
@@ -268,8 +179,13 @@ export function App() {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             className="message-input"
+            disabled={!connected}
           />
-          <button type="submit" className="btn btn-primary">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={!connected}
+          >
             Send
           </button>
         </form>
@@ -277,5 +193,3 @@ export function App() {
     </div>
   );
 }
-
-export default App;
