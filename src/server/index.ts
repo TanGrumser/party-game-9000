@@ -48,7 +48,19 @@ interface Lobby {
 
 // ============ CONSTANTS ============
 
-const EMOJIS = ["🍎", "🚀", "🎸", "🌙", "🔥", "🎯", "🌈", "🍕", "🎲", "🌟", "🎪", "🦊", "🌺", "⚡", "🎭", "🍦", "🎵", "🌴", "🦋", "🎨"];
+const EMOJIS = [
+  // Food
+  "🍎", "🍕", "🍦", "🍩", "🍔", "🌮", "🍣", "🧁", "🍪", "🥨",
+  // Animals
+  "🦊", "🦋", "🐙", "🦄", "🐸", "🦁", "🐧", "🦀", "🐝", "🦉",
+  // Nature
+  "🌙", "🌈", "🌺", "🌴", "🌵", "🍀", "🌸", "⭐", "🌊", "❄️",
+  // Objects
+  "🚀", "🎸", "🔥", "🎯", "🎲", "🎪", "🎭", "🎵", "🎨", "💎",
+  "⚡", "🔔", "🎈", "🎁", "🏆", "👑", "💡", "🔮", "🎀", "🧲",
+  // Symbols
+  "❤️", "💜", "💚", "🧡", "💙", "☀️", "🌟", "✨", "💫", "🎉",
+];
 const TIMER_DURATIONS = [48000, 64000, 80000]; // 48-80 seconds
 const CODE_REFRESH_MIN = 15000; // 15 seconds
 const CODE_REFRESH_MAX = 20000; // 20 seconds
@@ -92,7 +104,7 @@ function shuffleArray<T>(array: T[]): T[] {
   const result = [...array];
   for (let i = result.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
+    [result[i], result[j]] = [result[j]!, result[i]!];
   }
   return result;
 }
@@ -143,10 +155,10 @@ function initializeGameState(lobby: Lobby): GameState {
     for (let i = 0; i < 3; i++) {
       inputs.push({
         id: `${playerId}-${i}`,
-        emoji: allEmojis[emojiIndex++ % allEmojis.length],
+        emoji: allEmojis[emojiIndex++ % allEmojis.length]!,
         code: generateCode(),
         codeExpiresAt: generateCodeExpiry(),
-        timerDuration: shuffledDurations[i],
+        timerDuration: shuffledDurations[i]!,
         timerStartedAt: Date.now(),
       });
     }
