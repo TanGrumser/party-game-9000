@@ -4,6 +4,45 @@ globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
 alwaysApply: false
 ---
 
+# Party Game 9000
+
+A collaborative chaotic multiplayer game where players work together to prevent a bomb from exploding.
+
+## Game Overview
+
+Players join a lobby and must cooperate to defuse a bomb by entering codes before time runs out. The catch: each player sees different information and must communicate with others to succeed.
+
+## Core Mechanics
+
+### Input Fields
+- Each player has **5 input fields** with individual countdown timers
+- Timers display as loading indicators and run at **different speeds**
+- Each input field has a **unique name** (e.g., "Alpha", "Bravo", etc.)
+- Players must enter the correct code before the timer expires
+
+### Codes
+- Codes are displayed as **circular loading indicators** that refresh on a cycle
+- Each code has a **memorable name** (e.g., "MonkeyGrapeMoon", "TigerSunsetRiver")
+- Codes rotate/refresh when their timer completes
+- Players can only see certain codes and must ask others for the ones they need
+
+### Gameplay Loop
+1. Players join a lobby via a code/link
+2. Game starts with the bomb timer
+3. Each player sees their input fields (with names) and some codes (with names)
+4. Players must communicate: "What's the code for MonkeyGrapeMoon?"
+5. Enter correct codes before individual timers run out
+6. Survive as long as possible
+
+## Technical Architecture
+
+- **WebSocket connections** required for real-time multiplayer communication
+- **Lobby system** for game sessions
+- **Server-authoritative** game state to prevent cheating
+- Use `Bun.serve()` WebSocket support for all real-time features
+
+---
+
 Default to using Bun instead of Node.js.
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
