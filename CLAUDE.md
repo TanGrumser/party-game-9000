@@ -41,6 +41,11 @@ Players join a lobby and must cooperate to defuse a bomb by entering codes befor
 - **Server-authoritative** game state to prevent cheating
 - Use `Bun.serve()` WebSocket support for all real-time features
 
+## Development
+
+- The server is always running with HMR - no need to start it manually
+- Changes to files are automatically picked up
+
 ---
 
 Default to using Bun instead of Node.js.
