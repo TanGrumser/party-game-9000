@@ -2,6 +2,8 @@ import { serve } from "bun";
 import type { ServerWebSocket } from "bun";
 import index from "../client/index.html";
 
+// ============ TYPES ============
+
 interface ClientData {
   lobbyId: string;
   playerId: string;
@@ -14,14 +16,52 @@ interface Player {
   connected: boolean;
 }
 
+interface InputField {
+  id: string;
+  emoji: string;
+  code: string;
+  codeExpiresAt: number;
+  timerDuration: number;
+  timerStartedAt: number;
+}
+
+interface PlayerGameState {
+  playerId: string;
+  playerName: string;
+  inputs: InputField[];
+}
+
+interface GameState {
+  lobbyId: string;
+  startedAt: number;
+  gameOver: boolean;
+  playerStates: Map<string, PlayerGameState>;
+  tickInterval: Timer | null;
+}
+
 interface Lobby {
   id: string;
   players: Map<string, { ws: ServerWebSocket<ClientData>; player: Player }>;
   createdAt: number;
-  gameStarted: boolean;
+  gameState: GameState | null;
 }
 
+// ============ CONSTANTS ============
+
+const EMOJIS = ["🍎", "🚀", "🎸", "🌙", "🔥", "🎯", "🌈", "🍕", "🎲", "🌟", "🎪", "🦊", "🌺", "⚡", "🎭", "🍦", "🎵", "🌴", "🦋", "🎨"];
+const TIMER_DURATIONS = [48000, 64000, 80000]; // 48-80 seconds
+const CODE_REFRESH_MIN = 15000; // 15 seconds
+const CODE_REFRESH_MAX = 20000; // 20 seconds
+const DIFFICULTY_TICK = 30000; // 30 seconds
+const DIFFICULTY_INCREASE = 0.1; // 10% faster each tick
+const TICK_INTERVAL = 500; // 500ms
+const MIN_PLAYERS = 2;
+
+// ============ STATE ============
+
 const lobbies = new Map<string, Lobby>();
+
+// ============ HELPER FUNCTIONS ============
 
 function generateLobbyCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -36,15 +76,325 @@ function generatePlayerId(): string {
   return Math.random().toString(36).substring(2, 10);
 }
 
+function generateCode(): string {
+  let code = "";
+  for (let i = 0; i < 4; i++) {
+    code += Math.floor(Math.random() * 10).toString();
+  }
+  return code;
+}
+
+function generateCodeExpiry(): number {
+  return Date.now() + CODE_REFRESH_MIN + Math.random() * (CODE_REFRESH_MAX - CODE_REFRESH_MIN);
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 function broadcast(lobby: Lobby, message: string) {
   for (const { ws } of lobby.players.values()) {
     ws.send(message);
   }
 }
 
+function sendToPlayer(lobby: Lobby, playerId: string, message: string) {
+  const playerData = lobby.players.get(playerId);
+  if (playerData) {
+    playerData.ws.send(message);
+  }
+}
+
 function getPlayerList(lobby: Lobby): Player[] {
   return Array.from(lobby.players.values()).map(({ player }) => player);
 }
+
+function getDifficultyMultiplier(gameState: GameState): number {
+  const elapsed = Date.now() - gameState.startedAt;
+  const ticks = Math.floor(elapsed / DIFFICULTY_TICK);
+  return 1 + ticks * DIFFICULTY_INCREASE;
+}
+
+function getEffectiveTimeRemaining(input: InputField, multiplier: number): number {
+  const elapsed = Date.now() - input.timerStartedAt;
+  const effectiveDuration = input.timerDuration / multiplier;
+  return Math.max(0, effectiveDuration - elapsed);
+}
+
+// ============ GAME LOGIC ============
+
+function initializeGameState(lobby: Lobby): GameState {
+  const playerIds = Array.from(lobby.players.keys());
+  const playerStates = new Map<string, PlayerGameState>();
+
+  // Get shuffled emojis for all players
+  const allEmojis = shuffleArray(EMOJIS);
+  let emojiIndex = 0;
+
+  for (const [playerId, { player }] of lobby.players) {
+    const inputs: InputField[] = [];
+    const shuffledDurations = shuffleArray(TIMER_DURATIONS);
+
+    for (let i = 0; i < 3; i++) {
+      inputs.push({
+        id: `${playerId}-${i}`,
+        emoji: allEmojis[emojiIndex++ % allEmojis.length],
+        code: generateCode(),
+        codeExpiresAt: generateCodeExpiry(),
+        timerDuration: shuffledDurations[i],
+        timerStartedAt: Date.now(),
+      });
+    }
+
+    playerStates.set(playerId, {
+      playerId,
+      playerName: player.name,
+      inputs,
+    });
+  }
+
+  return {
+    lobbyId: lobby.id,
+    startedAt: Date.now(),
+    gameOver: false,
+    playerStates,
+    tickInterval: null,
+  };
+}
+
+function getVisibleCodesForPlayer(gameState: GameState, playerId: string) {
+  const visibleCodes: Array<{
+    targetPlayerId: string;
+    targetPlayerName: string;
+    inputId: string;
+    emoji: string;
+    code: string;
+    codeExpiresIn: number;
+  }> = [];
+
+  const now = Date.now();
+
+  for (const [otherPlayerId, playerState] of gameState.playerStates) {
+    if (otherPlayerId === playerId) continue; // Don't show own codes
+
+    for (const input of playerState.inputs) {
+      visibleCodes.push({
+        targetPlayerId: otherPlayerId,
+        targetPlayerName: playerState.playerName,
+        inputId: input.id,
+        emoji: input.emoji,
+        code: input.code,
+        codeExpiresIn: Math.max(0, input.codeExpiresAt - now),
+      });
+    }
+  }
+
+  return visibleCodes;
+}
+
+function getPlayerInputsState(gameState: GameState, playerId: string, multiplier: number) {
+  const playerState = gameState.playerStates.get(playerId);
+  if (!playerState) return [];
+
+  return playerState.inputs.map((input) => ({
+    id: input.id,
+    emoji: input.emoji,
+    timerDuration: input.timerDuration,
+    timeRemaining: getEffectiveTimeRemaining(input, multiplier),
+  }));
+}
+
+function refreshExpiredCodes(gameState: GameState): boolean {
+  const now = Date.now();
+  let anyRefreshed = false;
+
+  for (const playerState of gameState.playerStates.values()) {
+    for (const input of playerState.inputs) {
+      if (now >= input.codeExpiresAt) {
+        input.code = generateCode();
+        input.codeExpiresAt = generateCodeExpiry();
+        anyRefreshed = true;
+      }
+    }
+  }
+
+  return anyRefreshed;
+}
+
+function checkGameOver(gameState: GameState): { gameOver: boolean; loser?: { playerName: string; emoji: string } } {
+  const multiplier = getDifficultyMultiplier(gameState);
+
+  for (const playerState of gameState.playerStates.values()) {
+    for (const input of playerState.inputs) {
+      const timeRemaining = getEffectiveTimeRemaining(input, multiplier);
+      if (timeRemaining <= 0) {
+        return {
+          gameOver: true,
+          loser: {
+            playerName: playerState.playerName,
+            emoji: input.emoji,
+          },
+        };
+      }
+    }
+  }
+
+  return { gameOver: false };
+}
+
+function handleCodeSubmission(
+  lobby: Lobby,
+  playerId: string,
+  inputId: string,
+  submittedCode: string
+): { success: boolean; message: string } {
+  const gameState = lobby.gameState;
+  if (!gameState || gameState.gameOver) {
+    return { success: false, message: "Game not active" };
+  }
+
+  const playerState = gameState.playerStates.get(playerId);
+  if (!playerState) {
+    return { success: false, message: "Player not found" };
+  }
+
+  const input = playerState.inputs.find((i) => i.id === inputId);
+  if (!input) {
+    return { success: false, message: "Input not found" };
+  }
+
+  // Check if code matches (case-insensitive)
+  if (input.code.toUpperCase() === submittedCode.toUpperCase()) {
+    // Reset timer
+    input.timerStartedAt = Date.now();
+    // Generate new code
+    input.code = generateCode();
+    input.codeExpiresAt = generateCodeExpiry();
+    console.log(`[GAME] Player ${playerState.playerName} entered correct code for ${input.emoji}`);
+    return { success: true, message: "Correct!" };
+  } else {
+    console.log(`[GAME] Player ${playerState.playerName} entered wrong code for ${input.emoji}: ${submittedCode} (expected ${input.code})`);
+    return { success: false, message: "Wrong code!" };
+  }
+}
+
+function startGameTick(lobby: Lobby) {
+  const gameState = lobby.gameState;
+  if (!gameState) return;
+
+  gameState.tickInterval = setInterval(() => {
+    if (gameState.gameOver) {
+      if (gameState.tickInterval) {
+        clearInterval(gameState.tickInterval);
+      }
+      return;
+    }
+
+    // Check for game over
+    const gameOverCheck = checkGameOver(gameState);
+    if (gameOverCheck.gameOver && gameOverCheck.loser) {
+      gameState.gameOver = true;
+
+      const survivedTime = Math.floor((Date.now() - gameState.startedAt) / 1000);
+
+      broadcast(
+        lobby,
+        JSON.stringify({
+          type: "game_over",
+          winner: false,
+          explodedPlayerName: gameOverCheck.loser.playerName,
+          explodedEmoji: gameOverCheck.loser.emoji,
+          survivedTime,
+        })
+      );
+
+      console.log(`[GAME] Game over in ${lobby.id}! ${gameOverCheck.loser.playerName}'s ${gameOverCheck.loser.emoji} exploded after ${survivedTime}s`);
+
+      if (gameState.tickInterval) {
+        clearInterval(gameState.tickInterval);
+      }
+      return;
+    }
+
+    // Refresh expired codes
+    const codesRefreshed = refreshExpiredCodes(gameState);
+
+    // Send tick update to each player
+    const multiplier = getDifficultyMultiplier(gameState);
+    const serverTime = Date.now();
+
+    for (const [playerId] of lobby.players) {
+      const playerState = gameState.playerStates.get(playerId);
+      if (!playerState) continue;
+
+      const inputs = playerState.inputs.map((input) => ({
+        id: input.id,
+        timeRemaining: getEffectiveTimeRemaining(input, multiplier),
+      }));
+
+      const tickMessage: Record<string, unknown> = {
+        type: "game_tick",
+        serverTime,
+        difficultyMultiplier: multiplier,
+        survivedTime: Math.floor((serverTime - gameState.startedAt) / 1000),
+        inputs,
+      };
+
+      // Include visible codes if any were refreshed
+      if (codesRefreshed) {
+        tickMessage.visibleCodes = getVisibleCodesForPlayer(gameState, playerId);
+      }
+
+      sendToPlayer(lobby, playerId, JSON.stringify(tickMessage));
+    }
+  }, TICK_INTERVAL);
+}
+
+function startGame(lobby: Lobby): boolean {
+  if (lobby.players.size < MIN_PLAYERS) {
+    console.log(`[GAME] Cannot start game - need at least ${MIN_PLAYERS} players`);
+    return false;
+  }
+
+  if (lobby.gameState) {
+    console.log(`[GAME] Game already started in ${lobby.id}`);
+    return false;
+  }
+
+  // Initialize game state
+  lobby.gameState = initializeGameState(lobby);
+  const multiplier = getDifficultyMultiplier(lobby.gameState);
+
+  console.log(`[GAME] Starting game in ${lobby.id} with ${lobby.players.size} players`);
+
+  // Send game_start to each player with their specific view
+  for (const [playerId] of lobby.players) {
+    const inputs = getPlayerInputsState(lobby.gameState, playerId, multiplier);
+    const visibleCodes = getVisibleCodesForPlayer(lobby.gameState, playerId);
+
+    sendToPlayer(
+      lobby,
+      playerId,
+      JSON.stringify({
+        type: "game_start",
+        inputs,
+        visibleCodes,
+      })
+    );
+  }
+
+  // Start the game tick loop
+  startGameTick(lobby);
+
+  return true;
+}
+
+// ============ SERVER ============
 
 const server = serve({
   routes: {
@@ -57,7 +407,7 @@ const server = serve({
           id: lobbyId,
           players: new Map(),
           createdAt: Date.now(),
-          gameStarted: false,
+          gameState: null,
         });
         console.log(`[SERVER] Created lobby: ${lobbyId}`);
         return Response.json({ lobbyId });
@@ -90,22 +440,27 @@ const server = serve({
       lobby.players.set(playerId, { ws, player });
 
       // Broadcast player joined to all
-      broadcast(lobby, JSON.stringify({
-        type: "player_joined",
-        playerId,
-        playerName,
-        players: getPlayerList(lobby),
-      }));
+      broadcast(
+        lobby,
+        JSON.stringify({
+          type: "player_joined",
+          playerId,
+          playerName,
+          players: getPlayerList(lobby),
+        })
+      );
 
       // Send welcome message to the new player
-      ws.send(JSON.stringify({
-        type: "welcome",
-        playerId,
-        playerName,
-        lobbyId,
-        players: getPlayerList(lobby),
-        gameStarted: lobby.gameStarted,
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "welcome",
+          playerId,
+          playerName,
+          lobbyId,
+          players: getPlayerList(lobby),
+          gameStarted: lobby.gameState !== null,
+        })
+      );
     },
 
     message(ws: ServerWebSocket<ClientData>, message: string | Buffer) {
@@ -120,25 +475,45 @@ const server = serve({
         if (!lobby) return;
 
         if (data.type === "chat") {
-          broadcast(lobby, JSON.stringify({
-            type: "chat",
-            playerId,
-            playerName,
-            message: data.message,
-            timestamp: Date.now(),
-          }));
+          broadcast(
+            lobby,
+            JSON.stringify({
+              type: "chat",
+              playerId,
+              playerName,
+              message: data.message,
+              timestamp: Date.now(),
+            })
+          );
           console.log(`[WS] Broadcasted chat to ${lobby.players.size} players`);
         }
 
         if (data.type === "start_game") {
-          if (!lobby.gameStarted) {
-            lobby.gameStarted = true;
-            console.log(`[SERVER] Game started in lobby ${lobbyId}`);
-            broadcast(lobby, JSON.stringify({
-              type: "game_started",
-              timestamp: Date.now(),
-            }));
+          const success = startGame(lobby);
+          if (!success && lobby.players.size < MIN_PLAYERS) {
+            sendToPlayer(
+              lobby,
+              playerId,
+              JSON.stringify({
+                type: "error",
+                message: `Need at least ${MIN_PLAYERS} players to start`,
+              })
+            );
           }
+        }
+
+        if (data.type === "submit_code") {
+          const result = handleCodeSubmission(lobby, playerId, data.inputId, data.code);
+          sendToPlayer(
+            lobby,
+            playerId,
+            JSON.stringify({
+              type: "code_result",
+              inputId: data.inputId,
+              success: result.success,
+              message: result.message,
+            })
+          );
         }
       } catch (e) {
         console.error(`[WS] Error parsing message: ${e}`);
@@ -154,14 +529,38 @@ const server = serve({
 
       lobby.players.delete(playerId);
 
-      broadcast(lobby, JSON.stringify({
-        type: "player_left",
-        playerId,
-        playerName,
-        players: getPlayerList(lobby),
-      }));
+      broadcast(
+        lobby,
+        JSON.stringify({
+          type: "player_left",
+          playerId,
+          playerName,
+          players: getPlayerList(lobby),
+        })
+      );
+
+      // If game is in progress and a player leaves, end the game
+      if (lobby.gameState && !lobby.gameState.gameOver) {
+        lobby.gameState.gameOver = true;
+        if (lobby.gameState.tickInterval) {
+          clearInterval(lobby.gameState.tickInterval);
+        }
+        broadcast(
+          lobby,
+          JSON.stringify({
+            type: "game_over",
+            winner: false,
+            explodedPlayerName: playerName,
+            explodedEmoji: "disconnected",
+            survivedTime: Math.floor((Date.now() - lobby.gameState.startedAt) / 1000),
+          })
+        );
+      }
 
       if (lobby.players.size === 0) {
+        if (lobby.gameState?.tickInterval) {
+          clearInterval(lobby.gameState.tickInterval);
+        }
         lobbies.delete(lobbyId);
         console.log(`[SERVER] Deleted empty lobby: ${lobbyId}`);
       }
