@@ -1,19 +1,49 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const STORAGE_KEY = "party-game-9000-name";
 
 interface HomeProps {
-  onCreateGame: () => Promise<string | null>;
-  onJoinGame: (code: string) => Promise<boolean>;
+  onCreateGame: (name: string) => Promise<string | null>;
+  onJoinGame: (code: string, name: string) => Promise<boolean>;
 }
 
 export function Home({ onCreateGame, onJoinGame }: HomeProps) {
+  const [playerName, setPlayerName] = useState("");
+
+  // Load name from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setPlayerName(saved);
+    }
+  }, []);
+
+  // Save name to localStorage when changed
+  const handleNameChange = (name: string) => {
+    setPlayerName(name);
+    console.log("Saving name to aosdhfalocalStorage:", name);
+    if (name.trim()) {
+      localStorage.setItem(STORAGE_KEY, name.trim());
+    }
+  };
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const validateName = (): boolean => {
+    if (!playerName.trim()) {
+      setError("Please enter your name");
+      return false;
+    }
+    return true;
+  };
+
   const handleCreate = async () => {
     setError("");
+    if (!validateName()) return;
+
     setLoading(true);
-    const lobbyId = await onCreateGame();
+    const lobbyId = await onCreateGame(playerName.trim());
     if (!lobbyId) {
       setError("Failed to create game");
     }
@@ -22,15 +52,16 @@ export function Home({ onCreateGame, onJoinGame }: HomeProps) {
 
   const handleJoin = async () => {
     setError("");
-    const code = joinCode.toUpperCase().trim();
+    if (!validateName()) return;
 
+    const code = joinCode.toUpperCase().trim();
     if (!code) {
       setError("Please enter a lobby code");
       return;
     }
 
     setLoading(true);
-    const success = await onJoinGame(code);
+    const success = await onJoinGame(code, playerName.trim());
     if (!success) {
       setError("Lobby not found");
     }
@@ -49,6 +80,16 @@ export function Home({ onCreateGame, onJoinGame }: HomeProps) {
       <p className="subtitle">A collaborative chaotic party game</p>
 
       <div className="menu">
+        <input
+          type="text"
+          placeholder="Enter your name"
+          value={playerName}
+          onChange={(e) => handleNameChange(e.target.value)}
+          maxLength={20}
+          className="input-name"
+          disabled={loading}
+        />
+
         <button
           className="btn btn-primary"
           onClick={handleCreate}

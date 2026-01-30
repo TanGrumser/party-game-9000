@@ -5,6 +5,7 @@ import index from "../client/index.html";
 interface ClientData {
   lobbyId: string;
   playerId: string;
+  playerName: string;
 }
 
 interface Lobby {
@@ -67,8 +68,8 @@ const server = serve({
 
   websocket: {
     open(ws: ServerWebSocket<ClientData>) {
-      const { lobbyId, playerId } = ws.data;
-      console.log(`[WS] Player ${playerId} connected to lobby ${lobbyId}`);
+      const { lobbyId, playerId, playerName } = ws.data;
+      console.log(`[WS] Player "${playerName}" (${playerId}) connected to lobby ${lobbyId}`);
 
       const lobby = lobbies.get(lobbyId);
       if (!lobby) return;
@@ -78,21 +79,23 @@ const server = serve({
       broadcast(lobby, JSON.stringify({
         type: "player_joined",
         playerId,
+        playerName,
         playerCount: lobby.players.size,
       }));
 
       ws.send(JSON.stringify({
         type: "welcome",
         playerId,
+        playerName,
         lobbyId,
         playerCount: lobby.players.size,
       }));
     },
 
     message(ws: ServerWebSocket<ClientData>, message: string | Buffer) {
-      const { lobbyId, playerId } = ws.data;
+      const { lobbyId, playerId, playerName } = ws.data;
       const messageStr = typeof message === "string" ? message : message.toString();
-      console.log(`[WS] Message from ${playerId} in ${lobbyId}: ${messageStr}`);
+      console.log(`[WS] Message from "${playerName}" in ${lobbyId}: ${messageStr}`);
 
       try {
         const data = JSON.parse(messageStr);
@@ -103,6 +106,7 @@ const server = serve({
             broadcast(lobby, JSON.stringify({
               type: "chat",
               playerId,
+              playerName,
               message: data.message,
               timestamp: Date.now(),
             }));
@@ -115,8 +119,8 @@ const server = serve({
     },
 
     close(ws: ServerWebSocket<ClientData>) {
-      const { lobbyId, playerId } = ws.data;
-      console.log(`[WS] Player ${playerId} disconnected from lobby ${lobbyId}`);
+      const { lobbyId, playerId, playerName } = ws.data;
+      console.log(`[WS] Player "${playerName}" (${playerId}) disconnected from lobby ${lobbyId}`);
 
       const lobby = lobbies.get(lobbyId);
       if (!lobby) return;
@@ -126,6 +130,7 @@ const server = serve({
       broadcast(lobby, JSON.stringify({
         type: "player_left",
         playerId,
+        playerName,
         playerCount: lobby.players.size,
       }));
 
@@ -141,6 +146,7 @@ const server = serve({
 
     if (url.pathname === "/ws") {
       const lobbyId = url.searchParams.get("lobby")?.toUpperCase();
+      const playerName = url.searchParams.get("name") || "Anonymous";
 
       if (!lobbyId || !lobbies.has(lobbyId)) {
         console.log(`[WS] Rejected connection - invalid lobby: ${lobbyId}`);
@@ -149,11 +155,11 @@ const server = serve({
 
       const playerId = generatePlayerId();
       const success = server.upgrade(req, {
-        data: { lobbyId, playerId },
+        data: { lobbyId, playerId, playerName },
       });
 
       if (success) {
-        console.log(`[WS] Upgraded connection for player ${playerId} to lobby ${lobbyId}`);
+        console.log(`[WS] Upgraded connection for "${playerName}" (${playerId}) to lobby ${lobbyId}`);
         return undefined;
       }
 

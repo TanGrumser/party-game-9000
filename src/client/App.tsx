@@ -8,14 +8,16 @@ type Screen = "home" | "lobby";
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [lobbyId, setLobbyId] = useState("");
+  const [playerName, setPlayerName] = useState("");
 
-  const handleCreateGame = async (): Promise<string | null> => {
+  const handleCreateGame = async (name: string): Promise<string | null> => {
     console.log("[CLIENT] Creating new lobby...");
     try {
       const response = await fetch("/api/lobby/create", { method: "POST" });
       const data = await response.json();
       console.log(`[CLIENT] Lobby created: ${data.lobbyId}`);
       setLobbyId(data.lobbyId);
+      setPlayerName(name);
       setScreen("lobby");
       return data.lobbyId;
     } catch (e) {
@@ -24,7 +26,7 @@ export function App() {
     }
   };
 
-  const handleJoinGame = async (code: string): Promise<boolean> => {
+  const handleJoinGame = async (code: string, name: string): Promise<boolean> => {
     console.log(`[CLIENT] Checking if lobby ${code} exists...`);
     try {
       const response = await fetch(`/api/lobby/${code}`);
@@ -32,6 +34,7 @@ export function App() {
       if (data.exists) {
         console.log(`[CLIENT] Joining lobby: ${code}`);
         setLobbyId(code);
+        setPlayerName(name);
         setScreen("lobby");
         return true;
       }
@@ -45,10 +48,11 @@ export function App() {
   const handleLeave = () => {
     setScreen("home");
     setLobbyId("");
+    setPlayerName("");
   };
 
   if (screen === "lobby" && lobbyId) {
-    return <Lobby lobbyId={lobbyId} onLeave={handleLeave} />;
+    return <Lobby lobbyId={lobbyId} playerName={playerName} onLeave={handleLeave} />;
   }
 
   return <Home onCreateGame={handleCreateGame} onJoinGame={handleJoinGame} />;

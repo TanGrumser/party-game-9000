@@ -3,16 +3,18 @@ import { useState, useEffect, useRef } from "react";
 interface ChatMessage {
   type: string;
   playerId: string;
+  playerName: string;
   message: string;
   timestamp: number;
 }
 
 interface LobbyProps {
   lobbyId: string;
+  playerName: string;
   onLeave: () => void;
 }
 
-export function Lobby({ lobbyId, onLeave }: LobbyProps) {
+export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
   const [playerId, setPlayerId] = useState("");
   const [playerCount, setPlayerCount] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -29,7 +31,8 @@ export function Lobby({ lobbyId, onLeave }: LobbyProps) {
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws?lobby=${lobbyId}`;
+    const encodedName = encodeURIComponent(playerName);
+    const wsUrl = `${protocol}//${window.location.host}/ws?lobby=${lobbyId}&name=${encodedName}`;
     console.log(`[CLIENT] Connecting to WebSocket: ${wsUrl}`);
 
     const ws = new WebSocket(wsUrl);
@@ -59,7 +62,8 @@ export function Lobby({ lobbyId, onLeave }: LobbyProps) {
               {
                 type: "system",
                 playerId: data.playerId,
-                message: `Player ${data.playerId} joined`,
+                playerName: data.playerName,
+                message: `${data.playerName} joined`,
                 timestamp: Date.now(),
               },
             ]);
@@ -72,7 +76,8 @@ export function Lobby({ lobbyId, onLeave }: LobbyProps) {
               {
                 type: "system",
                 playerId: data.playerId,
-                message: `Player ${data.playerId} left`,
+                playerName: data.playerName,
+                message: `${data.playerName} left`,
                 timestamp: Date.now(),
               },
             ]);
@@ -99,7 +104,7 @@ export function Lobby({ lobbyId, onLeave }: LobbyProps) {
     return () => {
       ws.close();
     };
-  }, [lobbyId]);
+  }, [lobbyId, playerName]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +143,7 @@ export function Lobby({ lobbyId, onLeave }: LobbyProps) {
             {connected ? "Connected" : "Disconnected"}
           </span>
           <span>Players: {playerCount}</span>
-          <span>You: {playerId || "..."}</span>
+          <span>You: {playerName}</span>
           <button className="btn btn-small" onClick={handleLeave}>
             Leave
           </button>
@@ -162,7 +167,7 @@ export function Lobby({ lobbyId, onLeave }: LobbyProps) {
               ) : (
                 <>
                   <span className="sender">
-                    {msg.playerId === playerId ? "You" : msg.playerId}:
+                    {msg.playerId === playerId ? "You" : msg.playerName}:
                   </span>
                   <span className="text">{msg.message}</span>
                 </>

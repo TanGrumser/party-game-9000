@@ -10,6 +10,7 @@ const app = (
 );
 
 if (import.meta.hot) {
+  import.meta.hot.accept();
   const reactRoot = (import.meta.hot.data.root ??= createRoot(root));
   reactRoot.render(app);
 } else {

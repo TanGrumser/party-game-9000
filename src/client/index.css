@@ -122,6 +122,25 @@ h1 {
   gap: 0.5rem;
 }
 
+.input-name {
+  padding: 0.8rem;
+  border: 2px solid #3a3a3a;
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: white;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.input-name:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.input-name:disabled {
+  opacity: 0.5;
+}
+
 .input-code {
   padding: 0.8rem;
   border: 2px solid #3a3a3a;
