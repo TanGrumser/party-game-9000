@@ -1,0 +1,42 @@
+name: Build and Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t party-game .
+
+      - name: Save and transfer image
+        run: |
+          docker save party-game | gzip > party-game.tar.gz
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -P ${{ secrets.SERVER_SSH_PORT }} \
+            party-game.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/party-game.tar.gz
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_SSH_PORT }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker load < ~/party-game.tar.gz
+            rm ~/party-game.tar.gz
+            docker stop party-game || true
+            docker rm party-game || true
+            docker run -d \
+              --name party-game \
+              --network proxy \
+              --restart unless-stopped \
+              party-game
