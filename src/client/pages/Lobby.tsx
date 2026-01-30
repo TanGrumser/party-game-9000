@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 
+interface Player {
+  id: string;
+  name: string;
+  connected: boolean;
+}
+
 interface ChatMessage {
-  type: string;
+  id: string;
   playerId: string;
   playerName: string;
   message: string;
@@ -16,18 +22,24 @@ interface LobbyProps {
 
 export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
   const [playerId, setPlayerId] = useState("");
-  const [playerCount, setPlayerCount] = useState(0);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageIdRef = useRef(0);
 
+  // Remove old messages after they fade
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setMessages((prev) => prev.filter((m) => now - m.timestamp < 5000));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -51,40 +63,34 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
         switch (data.type) {
           case "welcome":
             setPlayerId(data.playerId);
-            setPlayerCount(data.playerCount);
+            setPlayers(data.players);
+            setGameStarted(data.gameStarted);
             console.log(`[CLIENT] Welcome! Player ID: ${data.playerId}`);
             break;
 
           case "player_joined":
-            setPlayerCount(data.playerCount);
-            setMessages((prev) => [
-              ...prev,
-              {
-                type: "system",
-                playerId: data.playerId,
-                playerName: data.playerName,
-                message: `${data.playerName} joined`,
-                timestamp: Date.now(),
-              },
-            ]);
+            setPlayers(data.players);
             break;
 
           case "player_left":
-            setPlayerCount(data.playerCount);
+            setPlayers(data.players);
+            break;
+
+          case "chat":
             setMessages((prev) => [
               ...prev,
               {
-                type: "system",
+                id: `msg-${messageIdRef.current++}`,
                 playerId: data.playerId,
                 playerName: data.playerName,
-                message: `${data.playerName} left`,
-                timestamp: Date.now(),
+                message: data.message,
+                timestamp: data.timestamp,
               },
             ]);
             break;
 
-          case "chat":
-            setMessages((prev) => [...prev, data]);
+          case "game_started":
+            setGameStarted(true);
             break;
         }
       } catch (e) {
@@ -127,6 +133,73 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
     onLeave();
   };
 
+  const handleStartGame = () => {
+    if (wsRef.current) {
+      wsRef.current.send(JSON.stringify({ type: "start_game" }));
+    }
+  };
+
+  if (gameStarted) {
+    return (
+      <div className="page lobby">
+        <header className="lobby-header">
+          <div className="lobby-code-section">
+            <h2>
+              Lobby: <span className="lobby-code">{lobbyId}</span>
+            </h2>
+            <button className="btn btn-copy" onClick={handleCopyCode}>
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+          <div className="header-info">
+            <span className={`status ${connected ? "connected" : "disconnected"}`}>
+              {connected ? "Connected" : "Disconnected"}
+            </span>
+            <span>Players: {players.length}</span>
+            <span>You: {playerName}</span>
+          </div>
+        </header>
+
+        <div className="game-container">
+          <div className="game-area">
+            <p>Game is running...</p>
+            <p>Players: {players.map((p) => p.name).join(", ")}</p>
+          </div>
+        </div>
+
+        {/* Floating chat bubbles */}
+        <div className="chat-bubbles">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`chat-bubble ${msg.playerId === playerId ? "own" : ""}`}
+            >
+              <span className="bubble-sender">
+                {msg.playerId === playerId ? "You" : msg.playerName}:
+              </span>
+              <span className="bubble-text">{msg.message}</span>
+            </div>
+          ))}
+        </div>
+
+        <form className="message-form" onSubmit={handleSendMessage}>
+          <input
+            type="text"
+            placeholder="Type a message..."
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            className="message-input"
+            disabled={!connected}
+          />
+          <button type="submit" className="btn btn-primary" disabled={!connected}>
+            Send
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  // Pre-game lobby
   return (
     <div className="page lobby">
       <header className="lobby-header">
@@ -142,7 +215,7 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
           <span className={`status ${connected ? "connected" : "disconnected"}`}>
             {connected ? "Connected" : "Disconnected"}
           </span>
-          <span>Players: {playerCount}</span>
+          <span>Players: {players.length}</span>
           <span>You: {playerName}</span>
           <button className="btn btn-small" onClick={handleLeave}>
             Leave
@@ -150,51 +223,55 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
         </div>
       </header>
 
-      <div className="chat-container">
-        <div className="messages">
-          {messages.length === 0 && (
-            <p className="empty-state">No messages yet. Say hello!</p>
-          )}
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`message ${msg.type === "system" ? "system" : ""} ${
-                msg.playerId === playerId ? "own" : ""
-              }`}
-            >
-              {msg.type === "system" ? (
-                <span className="system-text">{msg.message}</span>
-              ) : (
-                <>
-                  <span className="sender">
-                    {msg.playerId === playerId ? "You" : msg.playerName}:
-                  </span>
-                  <span className="text">{msg.message}</span>
-                </>
-              )}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <form className="message-form" onSubmit={handleSendMessage}>
-          <input
-            type="text"
-            placeholder="Type a message..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            className="message-input"
-            disabled={!connected}
-          />
+      <div className="pre-game-container">
+        <div className="players-waiting">
+          <h3>Waiting for players...</h3>
+          <div className="player-list">
+            {players.map((player) => (
+              <div key={player.id} className={`player-card ${player.id === playerId ? "you" : ""}`}>
+                <span className="player-name">{player.name}</span>
+                {player.id === playerId && <span className="you-badge">You</span>}
+              </div>
+            ))}
+          </div>
           <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={!connected}
+            className="btn btn-primary btn-large start-btn"
+            onClick={handleStartGame}
+            disabled={!connected || players.length < 1}
           >
-            Send
+            Start Game
           </button>
-        </form>
+        </div>
       </div>
+
+      {/* Floating chat bubbles */}
+      <div className="chat-bubbles">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`chat-bubble ${msg.playerId === playerId ? "own" : ""}`}
+          >
+            <span className="bubble-sender">
+              {msg.playerId === playerId ? "You" : msg.playerName}:
+            </span>
+            <span className="bubble-text">{msg.message}</span>
+          </div>
+        ))}
+      </div>
+
+      <form className="message-form" onSubmit={handleSendMessage}>
+        <input
+          type="text"
+          placeholder="Type a message..."
+          value={inputMessage}
+          onChange={(e) => setInputMessage(e.target.value)}
+          className="message-input"
+          disabled={!connected}
+        />
+        <button type="submit" className="btn btn-primary" disabled={!connected}>
+          Send
+        </button>
+      </form>
     </div>
   );
 }

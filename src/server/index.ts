@@ -8,10 +8,17 @@ interface ClientData {
   playerName: string;
 }
 
+interface Player {
+  id: string;
+  name: string;
+  connected: boolean;
+}
+
 interface Lobby {
   id: string;
-  players: Map<string, ServerWebSocket<ClientData>>;
+  players: Map<string, { ws: ServerWebSocket<ClientData>; player: Player }>;
   createdAt: number;
+  gameStarted: boolean;
 }
 
 const lobbies = new Map<string, Lobby>();
@@ -30,9 +37,13 @@ function generatePlayerId(): string {
 }
 
 function broadcast(lobby: Lobby, message: string) {
-  for (const client of lobby.players.values()) {
-    client.send(message);
+  for (const { ws } of lobby.players.values()) {
+    ws.send(message);
   }
+}
+
+function getPlayerList(lobby: Lobby): Player[] {
+  return Array.from(lobby.players.values()).map(({ player }) => player);
 }
 
 const server = serve({
@@ -46,6 +57,7 @@ const server = serve({
           id: lobbyId,
           players: new Map(),
           createdAt: Date.now(),
+          gameStarted: false,
         });
         console.log(`[SERVER] Created lobby: ${lobbyId}`);
         return Response.json({ lobbyId });
@@ -74,21 +86,25 @@ const server = serve({
       const lobby = lobbies.get(lobbyId);
       if (!lobby) return;
 
-      lobby.players.set(playerId, ws);
+      const player: Player = { id: playerId, name: playerName, connected: true };
+      lobby.players.set(playerId, { ws, player });
 
+      // Broadcast player joined to all
       broadcast(lobby, JSON.stringify({
         type: "player_joined",
         playerId,
         playerName,
-        playerCount: lobby.players.size,
+        players: getPlayerList(lobby),
       }));
 
+      // Send welcome message to the new player
       ws.send(JSON.stringify({
         type: "welcome",
         playerId,
         playerName,
         lobbyId,
-        playerCount: lobby.players.size,
+        players: getPlayerList(lobby),
+        gameStarted: lobby.gameStarted,
       }));
     },
 
@@ -100,17 +116,28 @@ const server = serve({
       try {
         const data = JSON.parse(messageStr);
 
+        const lobby = lobbies.get(lobbyId);
+        if (!lobby) return;
+
         if (data.type === "chat") {
-          const lobby = lobbies.get(lobbyId);
-          if (lobby) {
+          broadcast(lobby, JSON.stringify({
+            type: "chat",
+            playerId,
+            playerName,
+            message: data.message,
+            timestamp: Date.now(),
+          }));
+          console.log(`[WS] Broadcasted chat to ${lobby.players.size} players`);
+        }
+
+        if (data.type === "start_game") {
+          if (!lobby.gameStarted) {
+            lobby.gameStarted = true;
+            console.log(`[SERVER] Game started in lobby ${lobbyId}`);
             broadcast(lobby, JSON.stringify({
-              type: "chat",
-              playerId,
-              playerName,
-              message: data.message,
+              type: "game_started",
               timestamp: Date.now(),
             }));
-            console.log(`[WS] Broadcasted chat to ${lobby.players.size} players`);
           }
         }
       } catch (e) {
@@ -131,7 +158,7 @@ const server = serve({
         type: "player_left",
         playerId,
         playerName,
-        playerCount: lobby.players.size,
+        players: getPlayerList(lobby),
       }));
 
       if (lobby.players.size === 0) {

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Home } from "./pages/Home";
 import { Lobby } from "./pages/Lobby";
-import "./index.css";
 
 type Screen = "home" | "lobby";
 

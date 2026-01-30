@@ -21,7 +21,7 @@ export function Home({ onCreateGame, onJoinGame }: HomeProps) {
   // Save name to localStorage when changed
   const handleNameChange = (name: string) => {
     setPlayerName(name);
-    console.log("Saving name to aosdhfalocalStorage:", name);
+    console.log("Saving name to localStorage:", name);
     if (name.trim()) {
       localStorage.setItem(STORAGE_KEY, name.trim());
     }
