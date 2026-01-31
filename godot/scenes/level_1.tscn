@@ -4,18 +4,29 @@
 [ext_resource type="PackedScene" uid="uid://cjwuu40up8f5x" path="res://scenes/tiled_background.tscn" id="2_4nkto"]
 [ext_resource type="Script" uid="uid://c5ywej7vstdd8" path="res://scripts/game_camera.gd" id="3_fcfvj"]
 [ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="4_pa8r4"]
-[ext_resource type="PackedScene" uid="uid://ddekeul8hmf0n" path="res://scenes/fire_obstacle.tscn" id="5_4nkto"]
+[ext_resource type="PackedScene" path="res://scenes/flame_arm.tscn" id="6_fcfvj"]
+[ext_resource type="PackedScene" path="res://scenes/hole.tscn" id="7_pa8r4"]
+[ext_resource type="PackedScene" path="res://scenes/wall.tscn" id="8_15mv3"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
 script = ExtResource("1_5xbjy")
 
 [node name="TiledBackground" parent="." unique_id=1360794295 instance=ExtResource("2_4nkto")]
+position = Vector2(934, 509)
+region_rect = Rect2(0, 0, 2000, 2000)
+
+[node name="TiledBackground2" parent="." unique_id=962446044 instance=ExtResource("2_4nkto")]
+position = Vector2(-766, 508)
+region_rect = Rect2(0, 0, 1400, 2000)
 
 [node name="GameCamera" type="Camera2D" parent="." unique_id=1234567890]
+position = Vector2(1633, -668)
 script = ExtResource("3_fcfvj")
+padding = 600.0
+max_zoom = 0.5
 
 [node name="MainBall" parent="." unique_id=1634294921 instance=ExtResource("4_pa8r4")]
-position = Vector2(372, 407)
+position = Vector2(1316, -112)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=506829652]
 
@@ -44,8 +55,68 @@ text = "Lobby: XXXX | HOST"
 layout_mode = 2
 text = "Back to Lobby"
 
-[node name="FireObstacle" parent="." unique_id=651581801 instance=ExtResource("5_4nkto")]
-position = Vector2(-55, 399)
+[node name="FlameArm" parent="." unique_id=342646634 instance=ExtResource("6_fcfvj")]
+position = Vector2(-961, 266)
+scale = Vector2(1, 1.05257)
+
+[node name="Hole" parent="." unique_id=167934659 instance=ExtResource("7_pa8r4")]
+position = Vector2(59, 777)
+
+[node name="Hole2" parent="." unique_id=780515745 instance=ExtResource("7_pa8r4")]
+position = Vector2(518, 626)
+
+[node name="Hole3" parent="." unique_id=148495525 instance=ExtResource("7_pa8r4")]
+position = Vector2(875, 856)
+
+[node name="Wall2" parent="." unique_id=1477277012 instance=ExtResource("8_15mv3")]
+position = Vector2(-895, -504)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall11" parent="." unique_id=324884820 instance=ExtResource("8_15mv3")]
+position = Vector2(271, -503)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall12" parent="." unique_id=480282708 instance=ExtResource("8_15mv3")]
+position = Vector2(1453, -502)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall13" parent="." unique_id=917789698 instance=ExtResource("8_15mv3")]
+position = Vector2(1991, -109.99999)
+rotation = 1.5707964
+scale = Vector2(1.0399985, 1)
+
+[node name="Wall7" parent="." unique_id=492765700 instance=ExtResource("8_15mv3")]
+position = Vector2(271, 273)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall10" parent="." unique_id=2058699503 instance=ExtResource("8_15mv3")]
+position = Vector2(1421, 281)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall8" parent="." unique_id=1970369120 instance=ExtResource("8_15mv3")]
+position = Vector2(203, 1123)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall9" parent="." unique_id=1573905047 instance=ExtResource("8_15mv3")]
+position = Vector2(1338, 1220)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall6" parent="." unique_id=194160351 instance=ExtResource("8_15mv3")]
+position = Vector2(-895.00006, 975)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall4" parent="." unique_id=124754172 instance=ExtResource("8_15mv3")]
+position = Vector2(-390, 282.00003)
+rotation = 1.5707964
+scale = Vector2(0.8400012, 1)
+
+[node name="Wall3" parent="." unique_id=1574774705 instance=ExtResource("8_15mv3")]
+position = Vector2(-1415, 26)
+rotation = 1.5707964
+
+[node name="Wall5" parent="." unique_id=1862915899 instance=ExtResource("8_15mv3")]
+position = Vector2(-1412, 587)
+rotation = 1.5707964
 
 [connection signal="body_entered" from="MainBall" to="MainBall" method="_on_body_entered"]
 [connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]

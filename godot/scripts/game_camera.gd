@@ -32,8 +32,14 @@ func _process(delta: float) -> void:
 	if _targets.is_empty():
 		return
 
-	# Calculate bounding rect of all targets
-	var bounds = _calculate_bounds()
+	# Get visible targets only (ignore dead/respawning balls)
+	var visible_targets = _targets.filter(func(t): return t.visible)
+
+	if visible_targets.is_empty():
+		return
+
+	# Calculate bounding rect of all visible targets
+	var bounds = _calculate_bounds(visible_targets)
 
 	# Target position is center of bounds
 	var target_pos = bounds.get_center()
@@ -45,11 +51,11 @@ func _process(delta: float) -> void:
 	var target_zoom = _calculate_zoom(bounds)
 	zoom = zoom.lerp(target_zoom, smooth_speed * delta)
 
-func _calculate_bounds() -> Rect2:
-	var min_pos = _targets[0].global_position
-	var max_pos = _targets[0].global_position
+func _calculate_bounds(targets: Array) -> Rect2:
+	var min_pos = targets[0].global_position
+	var max_pos = targets[0].global_position
 
-	for target in _targets:
+	for target in targets:
 		min_pos.x = minf(min_pos.x, target.global_position.x)
 		min_pos.y = minf(min_pos.y, target.global_position.y)
 		max_pos.x = maxf(max_pos.x, target.global_position.x)

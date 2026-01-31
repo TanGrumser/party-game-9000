@@ -1,0 +1,72 @@
+[gd_scene format=3 uid="uid://flamearm2024"]
+
+[ext_resource type="Texture2D" uid="uid://d1hf36ns0bncg" path="res://sprites/fire.png" id="1_fire"]
+[ext_resource type="Script" path="res://scripts/flame_arm.gd" id="2_script"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_2"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_3"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_4"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_5"]
+
+[node name="FireArm" type="Node2D"]
+script = ExtResource("2_script")
+
+[node name="Fire1" type="StaticBody2D" parent="."]
+position = Vector2(80, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Fire1"]
+scale = Vector2(0.48, 0.48)
+texture = ExtResource("1_fire")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Fire1"]
+scale = Vector2(6.16, 6.16)
+shape = SubResource("CircleShape2D_1")
+
+[node name="Fire2" type="StaticBody2D" parent="."]
+position = Vector2(160, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Fire2"]
+scale = Vector2(0.48, 0.48)
+texture = ExtResource("1_fire")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Fire2"]
+scale = Vector2(6.16, 6.16)
+shape = SubResource("CircleShape2D_2")
+
+[node name="Fire3" type="StaticBody2D" parent="."]
+position = Vector2(240, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Fire3"]
+scale = Vector2(0.48, 0.48)
+texture = ExtResource("1_fire")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Fire3"]
+scale = Vector2(6.16, 6.16)
+shape = SubResource("CircleShape2D_3")
+
+[node name="Fire4" type="StaticBody2D" parent="."]
+position = Vector2(320, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Fire4"]
+scale = Vector2(0.48, 0.48)
+texture = ExtResource("1_fire")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Fire4"]
+scale = Vector2(6.16, 6.16)
+shape = SubResource("CircleShape2D_4")
+
+[node name="Fire5" type="StaticBody2D" parent="."]
+position = Vector2(400, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Fire5"]
+scale = Vector2(0.48, 0.48)
+texture = ExtResource("1_fire")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Fire5"]
+scale = Vector2(6.16, 6.16)
+shape = SubResource("CircleShape2D_5")

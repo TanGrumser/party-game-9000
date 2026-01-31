@@ -1,5 +1,7 @@
 extends RigidBody2D
 
+@export var respawn_delay: float = 2.0  # Seconds before respawn
+
 @onready var burnt_sound: AudioStreamPlayer = $BurntSound
 
 var _spawn_position: Vector2
@@ -23,11 +25,45 @@ func sync_from_network(pos: Vector2, vel: Vector2) -> void:
 	_sync_pending = true
 	sleeping = false  # Wake up body so _integrate_forces gets called
 
+func get_spawn_position() -> Vector2:
+	return _spawn_position
+
+func set_spawn_position(pos: Vector2) -> void:
+	_spawn_position = pos
+
+var _stored_collision_layer: int = 0
+var _stored_collision_mask: int = 0
+
 func respawn() -> void:
+	burnt_sound.play()
+	print("[MainBall] Died, respawning in %.1f seconds at %s" % [respawn_delay, _spawn_position])
+
+	# Store collision settings and disable
+	_stored_collision_layer = collision_layer
+	_stored_collision_mask = collision_mask
+	collision_layer = 0
+	collision_mask = 0
+
+	# Hide, freeze, and move far away
+	visible = false
+	freeze = true
+	global_position = Vector2(-99999, -99999)
+
+	# Create respawn timer
+	var timer = get_tree().create_timer(respawn_delay)
+	timer.timeout.connect(_do_respawn)
+
+func _do_respawn() -> void:
+	# Restore collision
+	collision_layer = _stored_collision_layer
+	collision_mask = _stored_collision_mask
+
+	# Unfreeze and show
+	freeze = false
+	visible = true
 	_respawn_pending = true
 	sleeping = false
-	burnt_sound.play()
-	print("[MainBall] Respawning at %s" % _spawn_position)
+	print("[MainBall] Respawned at %s" % _spawn_position)
 
 # Apply network sync during physics step (safe way to modify RigidBody2D)
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:

@@ -7,6 +7,7 @@ extends RigidBody2D
 @export var remote_color: Color = Color(0.8, 0.3, 0.3)  # Red for other players
 @export var local_texture: Texture2D  # Texture for local player (optional)
 @export var remote_texture: Texture2D  # Texture for other players (optional)
+@export var respawn_delay: float = 2.0  # Seconds before respawn
 
 @onready var burnt_sound: AudioStreamPlayer = $BurntSound
 
@@ -139,14 +140,45 @@ func _end_drag(pos: Vector2) -> void:
 	)
 	print("[PlayerBall] Sent ball_shot for player_id=%s" % player_id)
 
+func get_spawn_position() -> Vector2:
+	return spawn_position
+
 func set_spawn_position(pos: Vector2) -> void:
 	spawn_position = pos
 
+var _stored_collision_layer: int = 0
+var _stored_collision_mask: int = 0
+
 func respawn() -> void:
+	burnt_sound.play()
+	print("[PlayerBall] %s died, respawning in %.1f seconds at %s" % [player_id, respawn_delay, spawn_position])
+
+	# Store collision settings and disable
+	_stored_collision_layer = collision_layer
+	_stored_collision_mask = collision_mask
+	collision_layer = 0
+	collision_mask = 0
+
+	# Hide, freeze, and move far away
+	visible = false
+	freeze = true
+	global_position = Vector2(-99999, -99999)
+
+	# Create respawn timer
+	var timer = get_tree().create_timer(respawn_delay)
+	timer.timeout.connect(_do_respawn)
+
+func _do_respawn() -> void:
+	# Restore collision
+	collision_layer = _stored_collision_layer
+	collision_mask = _stored_collision_mask
+
+	# Unfreeze and show
+	freeze = false
+	visible = true
 	_respawn_pending = true
 	sleeping = false
-	burnt_sound.play()
-	print("[PlayerBall] Respawning player %s at %s" % [player_id, spawn_position])
+	print("[PlayerBall] %s respawned at %s" % [player_id, spawn_position])
 
 # Called by game.gd to sync state from network
 func sync_from_network(pos: Vector2, vel: Vector2) -> void:

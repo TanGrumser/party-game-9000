@@ -68,11 +68,16 @@ func _respawn_ball(ball: RigidBody2D) -> void:
 	if not is_instance_valid(ball):
 		return
 
-	# Respawn at origin with zero velocity
+	# Get spawn position from ball if it has the method, otherwise use origin
+	var respawn_pos = Vector2.ZERO
+	if ball.has_method("get_spawn_position"):
+		respawn_pos = ball.get_spawn_position()
+
+	# Respawn at spawn position with zero velocity
 	ball.freeze = false
 	ball.linear_velocity = Vector2.ZERO
 	ball.angular_velocity = 0.0
-	ball.global_position = Vector2.ZERO
+	ball.global_position = respawn_pos
 	ball.visible = true
 
-	print("[Hole] Ball respawned at origin")
+	print("[Hole] Ball respawned at %s" % respawn_pos)
