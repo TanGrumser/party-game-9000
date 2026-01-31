@@ -46,7 +46,8 @@ func _physics_process(delta: float) -> void:
 
 		# Apply gravitational pull (stronger when closer)
 		var pull_direction = to_hole.normalized()
-		var pull_strength = gravity_strength * (1.0 - distance / gravity_radius)
+		var pull_factor = clampf(1.0 - distance / gravity_radius, 0.0, 1.0)
+		var pull_strength = gravity_strength * pull_factor
 		ball.apply_central_force(pull_direction * pull_strength)
 
 func _ball_fell_in(ball: RigidBody2D) -> void:

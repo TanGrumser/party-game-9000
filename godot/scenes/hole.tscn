@@ -1,20 +1,20 @@
 [gd_scene format=3 uid="uid://ba7hihfr2iqc"]
 
-[ext_resource type="Texture2D" uid="uid://bn8qakhwv5eu0" path="res://scenes/circle.png" id="1_lerre"]
 [ext_resource type="Script" uid="uid://d34ryq4ubeulw" path="res://scripts/hole.gd" id="2_hole"]
+[ext_resource type="Texture2D" uid="uid://c7vx0t45jxxwq" path="res://sprites/hole.png" id="2_iyxdx"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_gravity"]
-radius = 345.071
+radius = 112.15862
 
 [node name="Hole" type="Node2D" unique_id=167934659]
-scale = Vector2(0.75, 0.75)
 script = ExtResource("2_hole")
+gravity_strength = 1000.0
 gravity_radius = 200.0
-fall_radius = 50.0
+fall_radius = 10.0
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=682103374]
-modulate = Color(0.42381316, 0.21984628, 0.07435604, 1)
-texture = ExtResource("1_lerre")
+modulate = Color(0.82, 0.42776665, 0.14760001, 1)
+texture = ExtResource("2_iyxdx")
 
 [node name="GravityArea" type="Area2D" parent="." unique_id=2144260350]
 collision_layer = 0
