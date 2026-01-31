@@ -87,6 +87,9 @@ func _spawn_ball_at_index(player_id: String, index: int, total: int, is_local: b
 	add_child(ball)
 	_balls[player_id] = ball
 
+	# Configure network behavior (freeze remote players for pure interpolation)
+	ball._setup_for_network()
+
 	print("[Game] Spawned ball for %s (local: %s) at index %d/%d, pos %s" % [
 		player_id, is_local, index, total, ball.global_position
 	])

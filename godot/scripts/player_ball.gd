@@ -34,8 +34,17 @@ const DRAG_INDICATOR_SCENE = preload("res://scenes/drag_indicator.tscn")
 
 func _ready() -> void:
 	can_sleep = false  # Never sleep - we need _integrate_forces for network sync
+	_visual_position = global_position
 	_update_appearance()
 	body_entered.connect(_on_body_entered)
+
+func _setup_for_network() -> void:
+	"""Called after is_local is set to configure physics appropriately."""
+	# Host runs physics for ALL balls (is authoritative)
+	# Non-host only runs physics for local ball, freezes others for pure interpolation
+	if not is_local and not LobbyManager.is_host():
+		freeze = true
+		print("[PlayerBall] %s is remote on non-host - physics frozen, using pure interpolation" % player_id)
 
 func _update_appearance() -> void:
 	var sprite = get_node_or_null("Sprite2D")
@@ -53,19 +62,12 @@ var _sync_pending: bool = false
 var _sync_position: Vector2
 var _sync_velocity: Vector2
 
-# Correction settings for local player
-const LOCAL_CORRECTION_THRESHOLD: float = 100.0  # Pixels before correcting local player
-const LOCAL_SNAP_THRESHOLD: float = 200.0  # Hard snap for severe divergence
-const LOCAL_CORRECTION_RATE: float = 0.4  # Correction rate (was 0.2)
-const REMOTE_CORRECTION_RATE: float = 0.3  # Correction rate for remote entities
-
-# Convergence settings (prevents asymptotic drift)
-const ERROR_SNAP_THRESHOLD: float = 1.0  # Hard-snap below 1 pixel
-const CORRECTION_TIMEOUT_MS: int = 500   # Hard-snap after 500ms of correcting
+# Visual smoothing - sprite smoothly follows physics body
+var _visual_position: Vector2 = Vector2.ZERO
+const VISUAL_SMOOTH_SPEED: float = 15.0  # How fast visual catches up (higher = faster)
 
 # Respawn state (applied in _integrate_forces)
 var _respawn_pending: bool = false
-var _correction_start_time: int = 0  # Tracks when correction started
 
 func _input(event: InputEvent) -> void:
 	if not is_local:
@@ -205,6 +207,7 @@ func _do_respawn() -> void:
 	freeze = false
 	visible = true
 	_respawn_pending = true
+	_visual_position = spawn_position  # Snap visual to spawn position
 	sleeping = false
 	print("[PlayerBall] %s respawned at %s" % [player_id, spawn_position])
 
@@ -215,38 +218,46 @@ func _do_respawn() -> void:
 # Called by game.gd to sync state from network
 func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
 	if is_local:
-		# Local player: correct if diverged from host
+		# Local player: hard snap physics, visual will smooth catch up
+		# Only correct if significantly diverged (>50px)
 		var pos_diff = (pos - global_position).length()
-		if pos_diff > LOCAL_SNAP_THRESHOLD:
-			# Hard snap for severe divergence - teleport immediately
+		if pos_diff > 50.0:
 			_sync_position = pos
 			_sync_velocity = vel
 			_sync_pending = true
 			sleeping = false
-		elif pos_diff > LOCAL_CORRECTION_THRESHOLD:
-			# Gradual correction for moderate divergence
-			_sync_position = global_position.lerp(pos, LOCAL_CORRECTION_RATE)
-			_sync_velocity = linear_velocity.lerp(vel, LOCAL_CORRECTION_RATE)
-			_sync_pending = true
-			sleeping = false
 		return
 
-	# Remote players: add to interpolation buffer
+	# Remote players: add to interpolation buffer (physics is frozen)
 	_interpolator.add_state(pos, vel, timestamp)
 
 func _process(delta: float) -> void:
-	# Skip interpolation for local player or host
-	if is_local or LobbyManager.is_host():
+	var sprite = get_node_or_null("Sprite2D")
+
+	# Host runs physics for all balls - just do visual smoothing
+	if LobbyManager.is_host():
+		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
+		if sprite:
+			sprite.global_position = _visual_position
 		return
 
-	# Update interpolator and get interpolated values
+	# Non-host: local player runs physics with visual smoothing
+	if is_local:
+		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
+		if sprite:
+			sprite.global_position = _visual_position
+		return
+
+	# Non-host remote players: pure interpolation (physics is frozen)
 	_interpolator.update()
 
 	if _interpolator.has_valid_state:
-		_sync_position = _interpolator.interpolated_position
-		_sync_velocity = _interpolator.interpolated_velocity
-		_sync_pending = true
-		sleeping = false
+		# Directly set position - no physics simulation to fight
+		global_position = _interpolator.interpolated_position
+		# Visual follows directly since we're not doing physics correction
+		_visual_position = global_position
+		if sprite:
+			sprite.global_position = _visual_position
 
 # Apply network sync during physics step (safe way to modify RigidBody2D)
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
@@ -254,43 +265,15 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		_respawn_pending = false
 		state.transform.origin = spawn_position
 		state.linear_velocity = Vector2.ZERO
-		_correction_start_time = 0
+		_visual_position = spawn_position  # Snap visual too
 		return
 
 	if _sync_pending:
 		_sync_pending = false
-
-		if is_local:
-			# Local player: already lerped in sync_from_network, apply directly
-			state.transform.origin = _sync_position
-			state.linear_velocity = _sync_velocity
-			_correction_start_time = 0
-		else:
-			# Remote players: smooth correction toward interpolated target
-			var pos_error = _sync_position - state.transform.origin
-			var error_magnitude = pos_error.length()
-
-			# Snap if error is negligibly small (prevents infinite asymptotic correction)
-			if error_magnitude < ERROR_SNAP_THRESHOLD:
-				state.transform.origin = _sync_position
-				state.linear_velocity = _sync_velocity
-				_correction_start_time = 0
-				return
-
-			# Snap if correcting too long (ensures eventual convergence)
-			var now = Time.get_ticks_msec()
-			if _correction_start_time == 0:
-				_correction_start_time = now
-			elif now - _correction_start_time > CORRECTION_TIMEOUT_MS:
-				state.transform.origin = _sync_position
-				state.linear_velocity = _sync_velocity
-				_correction_start_time = 0
-				return
-
-			# Apply smooth correction for larger errors
-			var vel_error = _sync_velocity - state.linear_velocity
-			state.transform.origin += pos_error * REMOTE_CORRECTION_RATE
-			state.linear_velocity += vel_error * REMOTE_CORRECTION_RATE
+		# Hard snap physics to authoritative state
+		# Visual will smoothly catch up in _process()
+		state.transform.origin = _sync_position
+		state.linear_velocity = _sync_velocity
 
 func handle_remote_death() -> void:
 	"""Called when another client reports this ball died."""
@@ -308,8 +291,9 @@ func handle_remote_death() -> void:
 
 	# Hide and freeze
 	visible = false
-	freeze = true
+	freeze = true  # Freeze on both host and non-host during death
 	global_position = Vector2(-99999, -99999)
+	_visual_position = global_position
 
 func handle_remote_respawn(spawn_pos: Vector2) -> void:
 	"""Called when another client reports this ball respawned."""
@@ -322,13 +306,18 @@ func handle_remote_respawn(spawn_pos: Vector2) -> void:
 	if spawn_pos != Vector2.ZERO:
 		spawn_position = spawn_pos
 
-	# Immediately snap to spawn position (no interpolation)
-	_respawn_pending = true
-	sleeping = false
+	# Directly set position
+	global_position = spawn_pos
+	_visual_position = spawn_pos
 
 	# Restore visibility and collision
 	visible = true
-	freeze = false
+
+	# Host unfreezes (runs physics for all balls)
+	# Non-host keeps remote balls frozen (pure interpolation)
+	if LobbyManager.is_host():
+		freeze = false
+
 	if _stored_collision_layer != 0:
 		collision_layer = _stored_collision_layer
 		collision_mask = _stored_collision_mask
