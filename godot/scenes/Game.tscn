@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://dlmgjqdmolwmq"]
+
+[ext_resource type="Texture2D" uid="uid://c10xcncbtx813" path="res://sprites/circle.png" id="1_ibkli"]
+[ext_resource type="Script" path="res://scripts/game.gd" id="2_game"]
+[ext_resource type="Script" uid="uid://lkxtor2rny0o" path="res://scripts/player_ball.gd" id="3_ball"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_qbsmt"]
+
+[node name="Game" type="Node2D" unique_id=147279626]
+script = ExtResource("2_game")
+
+[node name="RigidBody2D" type="RigidBody2D" parent="." unique_id=1126309292]
+position = Vector2(372, 608)
+gravity_scale = 0.0
+linear_damp = 1.0
+script = ExtResource("3_ball")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D" unique_id=1666027374]
+scale = Vector2(7.98, 7.98)
+shape = SubResource("CircleShape2D_qbsmt")
+
+[node name="Sprite2D" type="Sprite2D" parent="RigidBody2D" unique_id=1212723107]
+scale = Vector2(0.22380953, 0.22380945)
+texture = ExtResource("1_ibkli")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=506829652]
+
+[node name="UI" type="Control" parent="CanvasLayer" unique_id=1776302195]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="HBoxContainer" parent="CanvasLayer/UI" unique_id=313059629]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+
+[node name="LobbyLabel" type="Label" parent="CanvasLayer/UI/TopBar" unique_id=1047351573]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Lobby: XXXX | HOST"
+
+[node name="BackButton" type="Button" parent="CanvasLayer/UI/TopBar" unique_id=1831755182]
+layout_mode = 2
+text = "Back to Lobby"
+
+[connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]

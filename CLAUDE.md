@@ -6,45 +6,54 @@ alwaysApply: false
 
 # Party Game 9000
 
-A collaborative chaotic multiplayer game where players work together to prevent a bomb from exploding.
+A multiplayer auto-scroll billiard physics-based game built with Godot.
+
+## Monorepo Structure
+
+This is a monorepo containing:
+- **`/godot`** - Godot game client
+- **`/src/server`** - Bun WebSocket server for multiplayer coordination
 
 ## Game Overview
 
-Players join a lobby and must cooperate to defuse a bomb by entering codes before time runs out. The catch: each player sees different information and must communicate with others to succeed.
+Players connect to lobbies and compete in a physics-based billiard game with auto-scrolling mechanics. One player acts as the authoritative host who computes the game state.
 
 ## Core Mechanics
 
-### Input Fields
-- Each player has **5 input fields** with individual countdown timers
-- Timers display as loading indicators and run at **different speeds**
-- Each input field has a **unique name** (e.g., "Alpha", "Bravo", etc.)
-- Players must enter the correct code before the timer expires
+### Lobby System
+- Players connect via UI buttons in the Godot client
+- Enter an existing **lobby ID** to join, or create a new lobby
+- WebSocket connection established to the Bun server
 
-### Codes
-- Codes are displayed as **circular loading indicators** that refresh on a cycle
-- Each code has a **memorable name** (e.g., "MonkeyGrapeMoon", "TigerSunsetRiver")
-- Codes rotate/refresh when their timer completes
-- Players can only see certain codes and must ask others for the ones they need
+### Multiplayer Architecture
+- **Player-authoritative model**: One player (the host) computes physics and game state
+- Host broadcasts **position and velocity** of all balls:
+  - Every **100ms** (periodic sync)
+  - Immediately when a player executes a **ball shot**
+- Other players receive state updates and interpolate/reconcile locally
 
-### Gameplay Loop
-1. Players join a lobby via a code/link
-2. Game starts with the bomb timer
-3. Each player sees their input fields (with names) and some codes (with names)
-4. Players must communicate: "What's the code for MonkeyGrapeMoon?"
-5. Enter correct codes before individual timers run out
-6. Survive as long as possible
+### Ball Shot Mechanic
+- **Drag back to load**: Player drags their finger/cursor backward from their ball to charge the shot
+- **Release to shoot**: Ball launches in the **opposite direction** of the drag
+- Longer drag = more power
+- Shot direction and power sent via WebSocket to all players
+
+### Gameplay
+- Auto-scrolling billiard physics
+- Real-time synchronization via WebSocket
 
 ## Technical Architecture
 
-- **WebSocket connections** required for real-time multiplayer communication
-- **Lobby system** for game sessions
-- **Server-authoritative** game state to prevent cheating
-- Use `Bun.serve()` WebSocket support for all real-time features
+- **Godot** for game client and physics simulation
+- **Bun WebSocket server** for lobby management and message relay
+- **Player-authoritative** host computes game state
+- Host broadcasts ball positions/velocities to all connected players
 
 ## Development
 
-- The server is always running with HMR - no need to start it manually
-- Changes to files are automatically picked up
+- The Bun server runs with HMR - no need to restart manually
+- Changes to server files are automatically picked up
+- Godot project located in `/godot` directory
 
 ---
 
