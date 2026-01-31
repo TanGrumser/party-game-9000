@@ -5,6 +5,8 @@ extends RigidBody2D
 @export var max_drag: float = 200.0  # Maximum drag distance (clamped)
 @export var local_color: Color = Color(0.2, 0.8, 0.4)  # Green for local player
 @export var remote_color: Color = Color(0.8, 0.3, 0.3)  # Red for other players
+@export var local_texture: Texture2D  # Texture for local player (optional)
+@export var remote_texture: Texture2D  # Texture for other players (optional)
 
 @onready var burnt_sound: AudioStreamPlayer = $BurntSound
 
@@ -12,7 +14,7 @@ var player_id: String = ""
 var is_local: bool = false:
 	set(value):
 		is_local = value
-		_update_color()
+		_update_appearance()
 
 # Spawn point (can be updated for checkpoints)
 var spawn_position: Vector2 = Vector2.ZERO
@@ -28,13 +30,16 @@ const DRAG_INDICATOR_SCENE = preload("res://scenes/drag_indicator.tscn")
 
 func _ready() -> void:
 	can_sleep = false  # Never sleep - we need _integrate_forces for network sync
-	_update_color()
+	_update_appearance()
 	body_entered.connect(_on_body_entered)
 
-func _update_color() -> void:
+func _update_appearance() -> void:
 	var sprite = get_node_or_null("Sprite2D")
 	if sprite:
 		sprite.modulate = local_color if is_local else remote_color
+		var texture = local_texture if is_local else remote_texture
+		if texture:
+			sprite.texture = texture
 
 # Network sync state (applied in _integrate_forces)
 var _sync_pending: bool = false

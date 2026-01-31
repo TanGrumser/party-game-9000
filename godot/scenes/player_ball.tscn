@@ -1,14 +1,12 @@
 [gd_scene format=3 uid="uid://bxq7sk04gk7pq"]
 
-[ext_resource type="Texture2D" uid="uid://c10xcncbtx813" path="res://sprites/circle.png" id="1_sprite"]
+[ext_resource type="Texture2D" uid="uid://crw8awi4w1oac" path="res://sprites/players_ball_1.png" id="2_7knwm"]
 [ext_resource type="Script" uid="uid://lkxtor2rny0o" path="res://scripts/player_ball.gd" id="2_script"]
 [ext_resource type="AudioStream" uid="uid://bp2nju3io4dns" path="res://sounds/_burnt.mp3" id="3_burnt"]
+[ext_resource type="Texture2D" uid="uid://cx1nv0540dfbx" path="res://sprites/players_ball_2.png" id="3_d4d8q"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_vctqk"]
 bounce = 0.6
-friction = 1.0
-bounce_combine_mode = 2
-friction_combine_mode = 1
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_ball"]
 
@@ -21,14 +19,16 @@ linear_damp = 1.0
 script = ExtResource("2_script")
 max_impulse = 2500.0
 max_drag = 800.0
+local_texture = ExtResource("2_7knwm")
+remote_texture = ExtResource("3_d4d8q")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1339505015]
 scale = Vector2(7.98, 7.98)
 shape = SubResource("CircleShape2D_ball")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=348457451]
-scale = Vector2(0.22380953, 0.22380945)
-texture = ExtResource("1_sprite")
+scale = Vector2(1.9, 1.9)
+texture = ExtResource("2_7knwm")
 
-[node name="BurntSound" type="AudioStreamPlayer" parent="."]
+[node name="BurntSound" type="AudioStreamPlayer" parent="." unique_id=665273408]
 stream = ExtResource("3_burnt")
