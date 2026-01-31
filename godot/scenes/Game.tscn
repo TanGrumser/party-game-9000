@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="2_game"]
 [ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="4_78awf"]
 [ext_resource type="Script" path="res://scripts/game_camera.gd" id="5_camera"]
+[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/hole.tscn" id="5_s0nni"]
 [ext_resource type="PackedScene" path="res://scenes/tiled_background.tscn" id="6_bg"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
@@ -12,6 +13,9 @@ script = ExtResource("2_game")
 
 [node name="GameCamera" type="Camera2D" parent="." unique_id=1234567890]
 script = ExtResource("5_camera")
+
+[node name="Hole" parent="." unique_id=167934659 instance=ExtResource("5_s0nni")]
+position = Vector2(573, -21)
 
 [node name="MainBall" parent="." unique_id=1634294921 instance=ExtResource("4_78awf")]
 position = Vector2(372, 407)
