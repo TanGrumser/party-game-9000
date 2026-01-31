@@ -13,26 +13,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---------- Backend: build image ----------
+      # ========== BUILD PHASE ==========
+
       - name: Build backend Docker image
-        run: |
-          docker build -t party-game .
+        run: docker build -t party-game .
 
-      # ---------- Backend: save + transfer image ----------
-      - name: Save and transfer backend image
-        run: |
-          docker save party-game | gzip > party-game.tar.gz
+      - name: Godot Export (Web)
+        uses: firebelley/godot-export@v7.0.0
+        with:
+          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_linux.x86_64.zip
+          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz
+          relative_project_path: godot
+          presets_to_export: Web
+          archive_output: false
+          use_preset_export_path: true
 
+      # ========== DEPLOY PHASE (only runs if both builds succeed) ==========
+
+      - name: Setup SSH
+        run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
+      - name: Transfer backend image
+        run: |
+          docker save party-game | gzip > party-game.tar.gz
           scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -P ${{ secrets.SERVER_SSH_PORT }} \
             party-game.tar.gz \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/party-game.tar.gz
 
-      # ---------- Backend: deploy on server ----------
-      - name: Deploy backend on server
+      - name: Deploy backend
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -53,25 +64,10 @@ jobs:
               --restart unless-stopped \
               party-game
 
-      # ---------- Frontend: Godot Web export ----------
-
-      - name: Godot Export (Web)
-        id: godot_export
-        uses: firebelley/godot-export@v7.0.0
-        with:
-          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_linux.x86_64.zip
-          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz
-          relative_project_path: godot
-          presets_to_export: Web
-          archive_output: false
-          use_preset_export_path: true
-        
-      # ---------- Frontend: deploy static files ----------
-      - name: Deploy frontend (rsync)
+      - name: Deploy frontend
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SERVER_SSH_PORT }} -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /srv/www/party-game"
 
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SERVER_SSH_PORT }} -o StrictHostKeyChecking=no" \
             godot/build/web/ \
