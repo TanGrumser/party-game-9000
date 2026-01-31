@@ -21,8 +21,13 @@ var _sync_velocity: Vector2
 # Correction rate for smooth transitions
 const CORRECTION_RATE: float = 0.3
 
+# Convergence settings (prevents asymptotic drift)
+const ERROR_SNAP_THRESHOLD: float = 1.0  # Hard-snap below 1 pixel
+const CORRECTION_TIMEOUT_MS: int = 500   # Hard-snap after 500ms of correcting
+
 # Respawn state (applied in _integrate_forces)
 var _respawn_pending: bool = false
+var _correction_start_time: int = 0  # Tracks when correction started
 
 # Called by game.gd to sync state from network
 func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
@@ -100,15 +105,34 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		_respawn_pending = false
 		state.transform.origin = _spawn_position
 		state.linear_velocity = Vector2.ZERO
+		_correction_start_time = 0
 		return
 
 	if _sync_pending:
 		_sync_pending = false
 
-		# Smooth correction toward interpolated target
 		var pos_error = _sync_position - state.transform.origin
-		var vel_error = _sync_velocity - state.linear_velocity
+		var error_magnitude = pos_error.length()
 
+		# Snap if error is negligibly small (prevents infinite asymptotic correction)
+		if error_magnitude < ERROR_SNAP_THRESHOLD:
+			state.transform.origin = _sync_position
+			state.linear_velocity = _sync_velocity
+			_correction_start_time = 0
+			return
+
+		# Snap if correcting too long (ensures eventual convergence)
+		var now = Time.get_ticks_msec()
+		if _correction_start_time == 0:
+			_correction_start_time = now
+		elif now - _correction_start_time > CORRECTION_TIMEOUT_MS:
+			state.transform.origin = _sync_position
+			state.linear_velocity = _sync_velocity
+			_correction_start_time = 0
+			return
+
+		# Apply smooth correction for larger errors
+		var vel_error = _sync_velocity - state.linear_velocity
 		state.transform.origin += pos_error * CORRECTION_RATE
 		state.linear_velocity += vel_error * CORRECTION_RATE
 

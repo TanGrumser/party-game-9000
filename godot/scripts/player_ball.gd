@@ -56,8 +56,13 @@ const LOCAL_SNAP_THRESHOLD: float = 200.0  # Hard snap for severe divergence
 const LOCAL_CORRECTION_RATE: float = 0.4  # Correction rate (was 0.2)
 const REMOTE_CORRECTION_RATE: float = 0.3  # Correction rate for remote entities
 
+# Convergence settings (prevents asymptotic drift)
+const ERROR_SNAP_THRESHOLD: float = 1.0  # Hard-snap below 1 pixel
+const CORRECTION_TIMEOUT_MS: int = 500   # Hard-snap after 500ms of correcting
+
 # Respawn state (applied in _integrate_forces)
 var _respawn_pending: bool = false
+var _correction_start_time: int = 0  # Tracks when correction started
 
 func _input(event: InputEvent) -> void:
 	if not is_local:
@@ -242,6 +247,7 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		_respawn_pending = false
 		state.transform.origin = spawn_position
 		state.linear_velocity = Vector2.ZERO
+		_correction_start_time = 0
 		return
 
 	if _sync_pending:
@@ -251,11 +257,31 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 			# Local player: already lerped in sync_from_network, apply directly
 			state.transform.origin = _sync_position
 			state.linear_velocity = _sync_velocity
+			_correction_start_time = 0
 		else:
 			# Remote players: smooth correction toward interpolated target
 			var pos_error = _sync_position - state.transform.origin
-			var vel_error = _sync_velocity - state.linear_velocity
+			var error_magnitude = pos_error.length()
 
+			# Snap if error is negligibly small (prevents infinite asymptotic correction)
+			if error_magnitude < ERROR_SNAP_THRESHOLD:
+				state.transform.origin = _sync_position
+				state.linear_velocity = _sync_velocity
+				_correction_start_time = 0
+				return
+
+			# Snap if correcting too long (ensures eventual convergence)
+			var now = Time.get_ticks_msec()
+			if _correction_start_time == 0:
+				_correction_start_time = now
+			elif now - _correction_start_time > CORRECTION_TIMEOUT_MS:
+				state.transform.origin = _sync_position
+				state.linear_velocity = _sync_velocity
+				_correction_start_time = 0
+				return
+
+			# Apply smooth correction for larger errors
+			var vel_error = _sync_velocity - state.linear_velocity
 			state.transform.origin += pos_error * REMOTE_CORRECTION_RATE
 			state.linear_velocity += vel_error * REMOTE_CORRECTION_RATE
 

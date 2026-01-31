@@ -33,6 +33,12 @@ var _is_host: bool = false
 var _connected: bool = false
 var _players: Array = []  # List of {id, name, isHost}
 
+# Reconnection state
+var _reconnect_attempts: int = 0
+var _reconnecting: bool = false
+const MAX_RECONNECT_ATTEMPTS: int = 5
+const RECONNECT_DELAYS: Array[float] = [1.0, 2.0, 4.0, 8.0, 16.0]
+
 func _ready() -> void:
 	_http_request = HTTPRequest.new()
 	add_child(_http_request)
@@ -42,23 +48,27 @@ func _ready() -> void:
 	_resolve_backend_urls()
 
 func _process(_delta: float) -> void:
-	if _socket.get_ready_state() == WebSocketPeer.STATE_CLOSED:
+	var state = _socket.get_ready_state()
+
+	# Don't poll if closed or reconnecting
+	if state == WebSocketPeer.STATE_CLOSED:
+		if _connected and not _reconnecting and not _lobby_id.is_empty():
+			# Connection was lost unexpectedly - try to reconnect
+			var code = _socket.get_close_code()
+			print("[LobbyManager] WebSocket closed with code: %d" % code)
+			_connected = false
+			_attempt_reconnect()
 		return
 
 	_socket.poll()
 
-	var state = _socket.get_ready_state()
+	state = _socket.get_ready_state()
 	if state == WebSocketPeer.STATE_OPEN:
 		while _socket.get_available_packet_count() > 0:
 			var packet = _socket.get_packet()
 			_handle_message(packet.get_string_from_utf8())
 	elif state == WebSocketPeer.STATE_CLOSING:
 		pass
-	elif state == WebSocketPeer.STATE_CLOSED:
-		var code = _socket.get_close_code()
-		var reason = _socket.get_close_reason()
-		print("[LobbyManager] WebSocket closed with code: %d, reason: %s" % [code, reason])
-		_connected = false
 
 # ============ PUBLIC API ============
 
@@ -86,6 +96,8 @@ func check_lobby(lobby_id: String) -> void:
 func join_lobby(lobby_id: String, player_name: String) -> void:
 	_lobby_id = lobby_id.to_upper()
 	_player_name = player_name
+	_reconnect_attempts = 0
+	_reconnecting = false
 
 	print("[LobbyManager] Joining lobby %s as %s" % [_lobby_id, _player_name])
 
@@ -93,6 +105,33 @@ func join_lobby(lobby_id: String, player_name: String) -> void:
 	var error = _socket.connect_to_url(url)
 	if error != OK:
 		connection_error.emit("Failed to connect to WebSocket")
+
+func _attempt_reconnect() -> void:
+	if _reconnect_attempts >= MAX_RECONNECT_ATTEMPTS:
+		_reconnecting = false
+		connection_error.emit("Connection lost. Please rejoin lobby.")
+		return
+
+	_reconnecting = true
+	var delay = RECONNECT_DELAYS[_reconnect_attempts]
+	_reconnect_attempts += 1
+	print("[LobbyManager] Reconnecting in %.1fs (attempt %d/%d)" % [delay, _reconnect_attempts, MAX_RECONNECT_ATTEMPTS])
+
+	var timer = get_tree().create_timer(delay)
+	timer.timeout.connect(_do_reconnect)
+
+func _do_reconnect() -> void:
+	if _lobby_id.is_empty():
+		_reconnecting = false
+		return
+
+	print("[LobbyManager] Attempting reconnection...")
+	_socket = WebSocketPeer.new()  # Create fresh socket
+	var url = "%s?lobby=%s&name=%s" % [_ws_url, _lobby_id, _player_name.uri_encode()]
+	var error = _socket.connect_to_url(url)
+	if error != OK:
+		print("[LobbyManager] Reconnection failed, will retry...")
+		_attempt_reconnect()
 
 func send_ball_shot(ball_id: String, direction: Vector2, power: float) -> void:
 	if not _connected:
@@ -268,6 +307,8 @@ func _handle_message(message: String) -> void:
 			_player_id = data.get("playerId", "")
 			_is_host = data.get("isHost", false)
 			_connected = true
+			_reconnecting = false
+			_reconnect_attempts = 0
 			lobby_joined.emit(_lobby_id, _player_id, _is_host)
 			print("[LobbyManager] Joined as %s (host: %s)" % [_player_id, _is_host])
 
