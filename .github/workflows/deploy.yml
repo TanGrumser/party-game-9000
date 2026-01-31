@@ -70,5 +70,5 @@ jobs:
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /srv/www/party-game"
 
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SERVER_SSH_PORT }} -o StrictHostKeyChecking=no" \
-            godot/build/web/ \
+            build/ \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/srv/www/party-game/
