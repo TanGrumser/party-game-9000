@@ -6,11 +6,16 @@ extends RigidBody2D
 @export var local_color: Color = Color(0.2, 0.8, 0.4)  # Green for local player
 @export var remote_color: Color = Color(0.8, 0.3, 0.3)  # Red for other players
 
+@onready var burnt_sound: AudioStreamPlayer = $BurntSound
+
 var player_id: String = ""
 var is_local: bool = false:
 	set(value):
 		is_local = value
 		_update_color()
+
+# Spawn point (can be updated for checkpoints)
+var spawn_position: Vector2 = Vector2.ZERO
 
 # Drag state
 var _is_dragging: bool = false
@@ -24,8 +29,7 @@ const DRAG_INDICATOR_SCENE = preload("res://scenes/drag_indicator.tscn")
 func _ready() -> void:
 	can_sleep = false  # Never sleep - we need _integrate_forces for network sync
 	_update_color()
-
-	# Instantiate drag indicator (only for local player, done when needed)
+	body_entered.connect(_on_body_entered)
 
 func _update_color() -> void:
 	var sprite = get_node_or_null("Sprite2D")
@@ -36,6 +40,9 @@ func _update_color() -> void:
 var _sync_pending: bool = false
 var _sync_position: Vector2
 var _sync_velocity: Vector2
+
+# Respawn state (applied in _integrate_forces)
+var _respawn_pending: bool = false
 
 func _input(event: InputEvent) -> void:
 	if not is_local:
@@ -127,6 +134,15 @@ func _end_drag(pos: Vector2) -> void:
 	)
 	print("[PlayerBall] Sent ball_shot for player_id=%s" % player_id)
 
+func set_spawn_position(pos: Vector2) -> void:
+	spawn_position = pos
+
+func respawn() -> void:
+	_respawn_pending = true
+	sleeping = false
+	burnt_sound.play()
+	print("[PlayerBall] Respawning player %s at %s" % [player_id, spawn_position])
+
 # Called by game.gd to sync state from network
 func sync_from_network(pos: Vector2, vel: Vector2) -> void:
 	_sync_position = pos
@@ -136,7 +152,23 @@ func sync_from_network(pos: Vector2, vel: Vector2) -> void:
 
 # Apply network sync during physics step (safe way to modify RigidBody2D)
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
+	if _respawn_pending:
+		_respawn_pending = false
+		state.transform.origin = spawn_position
+		state.linear_velocity = Vector2.ZERO
+		return
+
 	if _sync_pending:
 		_sync_pending = false
 		state.transform.origin = _sync_position
 		state.linear_velocity = _sync_velocity
+
+func _on_body_entered(body: Node) -> void:
+	# Only local player handles their own collision
+	if not is_local:
+		return
+
+	print("[PlayerBall] %s touched: %s" % [player_id, body.name])
+	# Check if it's a fire obstacle (by name or group)
+	if body.name.begins_with("Fire") or body.is_in_group("fire"):
+		respawn()

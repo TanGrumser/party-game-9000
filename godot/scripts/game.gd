@@ -2,6 +2,7 @@ extends Node2D
 
 const BROADCAST_INTERVAL = 0.1  # 100ms
 const SPAWN_RADIUS = 150.0  # Distance from main ball to spawn player balls
+const SPAWN_OFFSET = 80.0  # Offset between player ball spawn points to prevent overlap
 
 @onready var ball_scene = preload("res://scenes/player_ball.tscn")
 @onready var main_ball = $MainBall
@@ -37,7 +38,12 @@ func _spawn_debug_ball() -> void:
 	var ball = ball_scene.instantiate()
 	ball.player_id = "debug_player"
 	ball.is_local = true
-	ball.global_position = main_ball.global_position + Vector2(SPAWN_RADIUS, 0)
+
+	# Set spawn position
+	var spawn_pos = main_ball.global_position + Vector2(SPAWN_RADIUS, 0)
+	ball.global_position = spawn_pos
+	ball.set_spawn_position(spawn_pos)
+
 	add_child(ball)
 	_balls["debug_player"] = ball
 	print("[Game] DEBUG: Spawned test ball at %s" % ball.global_position)
@@ -70,10 +76,11 @@ func _spawn_ball_at_index(player_id: String, index: int, total: int, is_local: b
 	ball.player_id = player_id
 	ball.is_local = is_local
 
-	# Calculate position around main ball - evenly distributed
-	var angle = (float(index) / float(total)) * TAU  # TAU = 2*PI
-	var offset = Vector2(cos(angle), sin(angle)) * SPAWN_RADIUS
-	ball.global_position = main_ball.global_position + offset
+	# Calculate spawn position - offset horizontally to prevent overlap
+	# Players spawn in a row to the right of the main ball
+	var spawn_pos = main_ball.global_position + Vector2(SPAWN_RADIUS + index * SPAWN_OFFSET, 0)
+	ball.global_position = spawn_pos
+	ball.set_spawn_position(spawn_pos)
 
 	add_child(ball)
 	_balls[player_id] = ball

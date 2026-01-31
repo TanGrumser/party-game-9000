@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://ddekeul8hmf0n"]
+
+[ext_resource type="Texture2D" uid="uid://d1hf36ns0bncg" path="res://sprites/fire.png" id="1_0ub03"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_aug50"]
+
+[node name="FireObstacle" type="StaticBody2D" unique_id=651581801]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1592278360]
+scale = Vector2(0.4800011, 0.4800011)
+texture = ExtResource("1_0ub03")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=711229482]
+scale = Vector2(6.16, 6.16)
+shape = SubResource("CircleShape2D_aug50")

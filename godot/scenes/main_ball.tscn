@@ -8,12 +8,15 @@ bounce = 0.6
 friction = 1.0
 bounce_combine_mode = 2
 friction_combine_mode = 1
+[ext_resource type="AudioStream" uid="uid://bp2nju3io4dns" path="res://sounds/_burnt.mp3" id="3_3hnxj"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_qbsmt"]
 
 [node name="MainBall" type="RigidBody2D" unique_id=1634294921]
 physics_material_override = SubResource("PhysicsMaterial_main_ball")
 gravity_scale = 0.0
+contact_monitor = true
+max_contacts_reported = 10
 linear_damp = 1.0
 script = ExtResource("2_main")
 
@@ -25,3 +28,6 @@ shape = SubResource("CircleShape2D_qbsmt")
 modulate = Color(0.28668356, 0.2866836, 0.28668356, 1)
 scale = Vector2(0.22380953, 0.22380945)
 texture = ExtResource("1_k1bik")
+
+[node name="BurntSound" type="AudioStreamPlayer" parent="." unique_id=354113946]
+stream = ExtResource("3_3hnxj")
