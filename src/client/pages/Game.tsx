@@ -10,8 +10,6 @@ interface InputFieldState {
 }
 
 interface VisibleCode {
-  targetPlayerId: string;
-  targetPlayerName: string;
   inputId: string;
   emoji: string;
   code: string;
@@ -138,6 +136,23 @@ export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, init
                 data.visibleCodes.map((code: VisibleCode) => ({ ...code, receivedAt }))
               );
             }
+            // Update visible codes with new timestamps
+            const receivedAt = Date.now();
+            setVisibleCodes(
+              data.visibleCodes.map((code: VisibleCode) => ({ ...code, receivedAt }))
+            );
+            break;
+
+          case "bomb_exploded":
+            setLives(data.livesRemaining);
+            setExplosions((prev) => [
+              ...prev,
+              {
+                playerName: data.explodedPlayerName,
+                emoji: data.explodedEmoji,
+                timestamp: Date.now(),
+              },
+            ]);
             break;
 
           case "bomb_exploded":
@@ -216,14 +231,6 @@ export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, init
     return Math.max(0, code.codeExpiresIn - elapsed);
   };
 
-  // Group visible codes by player
-  const codesByPlayer = new Map<string, VisibleCodeWithTimestamp[]>();
-  for (const code of visibleCodes) {
-    const existing = codesByPlayer.get(code.targetPlayerId) || [];
-    existing.push(code);
-    codesByPlayer.set(code.targetPlayerId, existing);
-  }
-
   // ============ RENDER ============
 
   return (
@@ -295,45 +302,38 @@ export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, init
           </div>
         </section>
 
-        {/* Visible codes for other players */}
+        {/* Visible codes to share */}
         <section className="codes-section">
           <h2>Codes to Share</h2>
-          <div className="codes-list">
-            {Array.from(codesByPlayer.entries()).map(([targetPlayerId, codes]) => (
-              <div key={targetPlayerId} className="player-codes">
-                <h3>{codes[0].targetPlayerName}</h3>
-                <div className="codes-row">
-                  {codes.map((code) => {
-                    // Calculate progress based on elapsed time since we received the code
-                    const timeRemaining = getCodeTimeRemaining(code);
-                    const maxExpiry = 20000; // Max code expiry time (20s)
-                    const progress = Math.min(100, (timeRemaining / maxExpiry) * 100);
+          <div className="codes-row">
+            {visibleCodes.map((code) => {
+              // Calculate progress based on elapsed time since we received the code
+              const timeRemaining = getCodeTimeRemaining(code);
+              const maxExpiry = 20000; // Max code expiry time (20s)
+              const progress = Math.min(100, (timeRemaining / maxExpiry) * 100);
 
-                    return (
-                      <div key={code.inputId} className="code-card">
-                        <span className="code-emoji">{code.emoji}</span>
-                        <span className="code-value">{code.code}</span>
-                        <svg className="code-timer" viewBox="0 0 20 20">
-                          <circle
-                            className="code-timer-bg"
-                            cx="10"
-                            cy="10"
-                            r="8"
-                          />
-                          <circle
-                            className="code-timer-progress"
-                            cx="10"
-                            cy="10"
-                            r="8"
-                            strokeDasharray={`${progress * 0.502} 50.2`}
-                          />
-                        </svg>
-                      </div>
-                    );
-                  })}
+              return (
+                <div key={code.inputId} className="code-card">
+                  <span className="code-emoji">{code.emoji}</span>
+                  <span className="code-value">{code.code}</span>
+                  <svg className="code-timer" viewBox="0 0 20 20">
+                    <circle
+                      className="code-timer-bg"
+                      cx="10"
+                      cy="10"
+                      r="8"
+                    />
+                    <circle
+                      className="code-timer-progress"
+                      cx="10"
+                      cy="10"
+                      r="8"
+                      strokeDasharray={`${progress * 0.502} 50.2`}
+                    />
+                  </svg>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </div>

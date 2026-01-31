@@ -248,8 +248,6 @@ function initializeGameState(lobby: Lobby): GameState {
 
 function getVisibleCodesForPlayer(gameState: GameState, playerId: string) {
   const visibleCodes: Array<{
-    targetPlayerId: string;
-    targetPlayerName: string;
     inputId: string;
     emoji: string;
     code: string;
@@ -260,7 +258,7 @@ function getVisibleCodesForPlayer(gameState: GameState, playerId: string) {
   const assignedInputIds = gameState.codeAssignments.get(playerId);
   if (!assignedInputIds) return visibleCodes;
 
-  // Only show codes that are assigned to this player
+  // Only show codes that are assigned to this player (no player names - anonymous codes)
   for (const [otherPlayerId, playerState] of gameState.playerStates) {
     if (otherPlayerId === playerId) continue; // Don't show own codes
 
@@ -268,8 +266,6 @@ function getVisibleCodesForPlayer(gameState: GameState, playerId: string) {
       // Only include if this input is assigned to this player
       if (assignedInputIds.has(input.id)) {
         visibleCodes.push({
-          targetPlayerId: otherPlayerId,
-          targetPlayerName: playerState.playerName,
           inputId: input.id,
           emoji: input.emoji,
           code: input.code,
@@ -306,6 +302,36 @@ function createGameBalls(lobby: Lobby): Ball[] {
 
 
 
+// Reassign a code to a different player after successful submission
+function reassignCode(gameState: GameState, inputId: string, ownerId: string, currentHolderId: string): void {
+  const playerIds = Array.from(gameState.playerStates.keys());
+
+  // Find eligible players: not the owner, and preferably not the current holder
+  const eligiblePlayers = playerIds.filter(pid => pid !== ownerId);
+
+  if (eligiblePlayers.length === 0) return;
+
+  // Remove from current holder
+  gameState.codeAssignments.get(currentHolderId)?.delete(inputId);
+
+  // If more than one eligible player, prefer someone other than current holder
+  let newHolder: string;
+  if (eligiblePlayers.length === 1) {
+    // Only one other player (2 player game) - must be them
+    newHolder = eligiblePlayers[0]!;
+  } else {
+    // Multiple eligible players - pick someone other than current holder
+    const preferredPlayers = eligiblePlayers.filter(pid => pid !== currentHolderId);
+    // Pick randomly from preferred players
+    newHolder = preferredPlayers[Math.floor(Math.random() * preferredPlayers.length)]!;
+  }
+
+  // Assign to new holder
+  gameState.codeAssignments.get(newHolder)?.add(inputId);
+
+  console.log(`[GAME] Reassigned code for ${inputId} from ${currentHolderId} to ${newHolder}`);
+}
+
 function getPlayerInputsState(gameState: GameState, playerId: string) {
   const playerState = gameState.playerStates.get(playerId);
   if (!playerState) return [];
@@ -318,20 +344,17 @@ function getPlayerInputsState(gameState: GameState, playerId: string) {
   }));
 }
 
-function refreshExpiredCodes(gameState: GameState): boolean {
+function refreshExpiredCodes(gameState: GameState): void {
   const now = Date.now();
-  let anyRefreshed = false;
 
   for (const playerState of gameState.playerStates.values()) {
     for (const input of playerState.inputs) {
       if (now >= input.codeExpiresAt) {
         input.code = generateCode();
         input.codeExpiresAt = generateCodeExpiry();
-        anyRefreshed = true;
       }
     }
   }
-  return anyRefreshed;
 }
         
 
@@ -422,12 +445,27 @@ function handleCodeSubmission(
 
   // Check if code matches (case-insensitive)
   if (input.code.toUpperCase() === submittedCode.toUpperCase()) {
+    // Find who currently has this code assigned
+    let currentHolder: string | null = null;
+    for (const [holderId, inputIds] of gameState.codeAssignments) {
+      if (inputIds.has(inputId)) {
+        currentHolder = holderId;
+        break;
+      }
+    }
+
     // Reset timer - apply current difficulty multiplier to new timer
     const multiplier = getDifficultyMultiplier(gameState);
     input.timerEndsAt = Date.now() + (input.timerDuration / multiplier);
     // Generate new code
     input.code = generateCode();
     input.codeExpiresAt = generateCodeExpiry();
+
+    // Reassign the code to a different player
+    if (currentHolder) {
+      reassignCode(gameState, inputId, playerId, currentHolder);
+    }
+
     console.log(`[GAME] Player ${playerState.playerName} entered correct code for ${input.emoji}`);
     return { success: true, message: "Correct!" };
   } else {
@@ -497,7 +535,7 @@ function startGameTick(lobby: Lobby) {
     }
 
     // Refresh expired codes
-    const codesRefreshed = refreshExpiredCodes(gameState);
+    refreshExpiredCodes(gameState);
 
     // Send tick update to each player
     const multiplier = getDifficultyMultiplier(gameState);
@@ -512,19 +550,15 @@ function startGameTick(lobby: Lobby) {
         timeRemaining: getTimeRemaining(input),
       }));
 
-      const tickMessage: Record<string, unknown> = {
+      const tickMessage = {
         type: "game_tick",
         serverTime,
         difficultyMultiplier: multiplier,
         survivedTime: Math.floor((serverTime - gameState.startedAt) / 1000),
         lives: gameState.lives,
         inputs,
+        visibleCodes: getVisibleCodesForPlayer(gameState, playerId),
       };
-
-      // Include visible codes if any were refreshed
-      if (codesRefreshed) {
-        tickMessage.visibleCodes = getVisibleCodesForPlayer(gameState, playerId);
-      }
 
       sendToPlayer(lobby, playerId, JSON.stringify(tickMessage));
     }
