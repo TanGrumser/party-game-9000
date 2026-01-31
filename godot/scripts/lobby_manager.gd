@@ -9,7 +9,10 @@ signal lobby_joined(lobby_id: String, player_id: String, is_host: bool)
 signal connection_error(message: String)
 signal player_joined(player_id: String, player_name: String, is_host: bool)
 signal player_left(player_id: String, player_name: String)
+signal player_ready_changed(player_id: String, is_ready: bool)
+signal all_players_ready()
 signal game_started(host_id: String)
+signal returned_to_lobby()
 signal game_state_received(state: Dictionary)
 signal ball_shot_received(player_id: String, shot_data: Dictionary)
 
@@ -124,6 +127,29 @@ func return_to_lobby() -> void:
 	var data = {"type": "return_to_lobby"}
 	_socket.send_text(JSON.stringify(data))
 
+func set_ready(is_ready: bool) -> void:
+	if not _connected:
+		return
+	var data = {"type": "player_ready", "isReady": is_ready}
+	_socket.send_text(JSON.stringify(data))
+
+func toggle_ready() -> void:
+	if not _connected:
+		return
+	var data = {"type": "player_ready"}
+	_socket.send_text(JSON.stringify(data))
+
+func are_all_players_ready() -> bool:
+	if _players.size() < 2:
+		return false
+	for p in _players:
+		if not p.get("isReady", false):
+			return false
+	return true
+
+func get_player_name() -> String:
+	return _player_name
+
 func is_host() -> bool:
 	return _is_host
 
@@ -224,7 +250,12 @@ func _handle_message(message: String) -> void:
 			_players.clear()
 			var players = data.get("players", [])
 			for p in players:
-				var player_data = {"id": p.get("id", ""), "name": p.get("name", ""), "isHost": p.get("isHost", false)}
+				var player_data = {
+					"id": p.get("id", ""),
+					"name": p.get("name", ""),
+					"isHost": p.get("isHost", false),
+					"isReady": p.get("isReady", false)
+				}
 				_players.append(player_data)
 				player_joined.emit(player_data.id, player_data.name, player_data.isHost)
 
@@ -240,7 +271,7 @@ func _handle_message(message: String) -> void:
 					found = true
 					break
 			if not found:
-				_players.append({"id": player_id, "name": player_name, "isHost": is_host})
+				_players.append({"id": player_id, "name": player_name, "isHost": is_host, "isReady": false})
 
 			player_joined.emit(player_id, player_name, is_host)
 
@@ -268,6 +299,35 @@ func _handle_message(message: String) -> void:
 			var shot_player_id = data.get("playerId", "")
 			print("[LobbyManager] ball_shot received: from player_id=%s, ballId=%s" % [shot_player_id, data.get("ballId", "")])
 			ball_shot_received.emit(shot_player_id, data)
+
+		"player_ready_changed":
+			var player_id = data.get("playerId", "")
+			var is_ready = data.get("isReady", false)
+
+			# Update player's ready state in local list
+			for p in _players:
+				if p.id == player_id:
+					p.isReady = is_ready
+					break
+
+			player_ready_changed.emit(player_id, is_ready)
+
+			# Check if all players are ready
+			if are_all_players_ready():
+				all_players_ready.emit()
+
+		"returned_to_lobby":
+			# Update players list with reset ready states
+			var players = data.get("players", [])
+			_players.clear()
+			for p in players:
+				_players.append({
+					"id": p.get("id", ""),
+					"name": p.get("name", ""),
+					"isHost": p.get("isHost", false),
+					"isReady": p.get("isReady", false)
+				})
+			returned_to_lobby.emit()
 
 		"error":
 			connection_error.emit(data.get("message", "Unknown error"))

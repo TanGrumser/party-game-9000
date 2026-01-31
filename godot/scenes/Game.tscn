@@ -3,12 +3,13 @@
 [ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="2_game"]
 [ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="4_78awf"]
 [ext_resource type="Script" path="res://scripts/game_camera.gd" id="5_camera"]
-[ext_resource type="PackedScene" uid="uid://c8tiledbg2024" path="res://scenes/tiled_background.tscn" id="6_bg"]
+[ext_resource type="PackedScene" uid="uid://1f16j1ajp7j5" path="res://scenes/wall.tscn" id="5_s0nni"]
+[ext_resource type="PackedScene" path="res://scenes/tiled_background.tscn" id="6_bg"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
 script = ExtResource("2_game")
 
-[node name="TiledBackground" parent="." instance=ExtResource("6_bg")]
+[node name="TiledBackground" parent="." unique_id=702032093 instance=ExtResource("6_bg")]
 
 [node name="GameCamera" type="Camera2D" parent="." unique_id=1234567890]
 script = ExtResource("5_camera")
@@ -42,5 +43,19 @@ text = "Lobby: XXXX | HOST"
 [node name="BackButton" type="Button" parent="CanvasLayer/UI/TopBar" unique_id=1831755182]
 layout_mode = 2
 text = "Back to Lobby"
+
+[node name="Wall3" parent="." unique_id=324884820 instance=ExtResource("5_s0nni")]
+position = Vector2(1, 457)
+
+[node name="Wall2" parent="." unique_id=682196990 instance=ExtResource("5_s0nni")]
+position = Vector2(0, 228)
+
+[node name="Wall" parent="." unique_id=716611112 instance=ExtResource("5_s0nni")]
+
+[node name="Wall5" parent="." unique_id=1191921398 instance=ExtResource("5_s0nni")]
+position = Vector2(437, 536)
+
+[node name="Wall4" parent="." unique_id=1320173954 instance=ExtResource("5_s0nni")]
+position = Vector2(218, 677)
 
 [connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]

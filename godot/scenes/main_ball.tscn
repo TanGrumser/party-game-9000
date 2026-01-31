@@ -1,11 +1,18 @@
 [gd_scene format=3 uid="uid://bfk3xgfqvxr6h"]
 
 [ext_resource type="Texture2D" uid="uid://c10xcncbtx813" path="res://sprites/circle.png" id="1_k1bik"]
-[ext_resource type="Script" path="res://scripts/main_ball.gd" id="2_main"]
+[ext_resource type="Script" uid="uid://ukkpwtvc7nrj" path="res://scripts/main_ball.gd" id="2_main"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_main_ball"]
+bounce = 0.6
+friction = 1.0
+bounce_combine_mode = 2
+friction_combine_mode = 1
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_qbsmt"]
 
 [node name="MainBall" type="RigidBody2D" unique_id=1634294921]
+physics_material_override = SubResource("PhysicsMaterial_main_ball")
 gravity_scale = 0.0
 linear_damp = 1.0
 script = ExtResource("2_main")

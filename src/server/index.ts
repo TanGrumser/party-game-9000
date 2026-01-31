@@ -11,6 +11,7 @@ interface Player {
   id: string;
   name: string;
   isHost: boolean;
+  isReady: boolean;
 }
 
 interface Lobby {
@@ -78,6 +79,7 @@ const server = serve({
         id: playerId,
         name: playerName,
         isHost,
+        isReady: false,
       };
 
       if (isHost) {
@@ -151,7 +153,13 @@ const server = serve({
             return;
           }
           lobby.gameStarted = true;
+          // Reset all players' ready state for next time
+          for (const [, { player }] of lobby.players) {
+            player.isReady = false;
+          }
           broadcast(lobby, JSON.stringify({ type: "game_started", hostId: lobby.hostId }));
+          // Also send to host
+          ws.send(JSON.stringify({ type: "game_started", hostId: lobby.hostId }));
         }
 
         // Return to lobby
@@ -161,7 +169,36 @@ const server = serve({
             return;
           }
           lobby.gameStarted = false;
-          broadcast(lobby, JSON.stringify({ type: "returned_to_lobby" }));
+          // Reset all players' ready state
+          for (const [, { player }] of lobby.players) {
+            player.isReady = false;
+          }
+          broadcast(lobby, JSON.stringify({ type: "returned_to_lobby", players: getPlayerList(lobby) }));
+        }
+
+        // Player ready state toggle
+        if (data.type === "player_ready") {
+          const playerEntry = lobby.players.get(playerId);
+          if (playerEntry) {
+            playerEntry.player.isReady = data.isReady ?? !playerEntry.player.isReady;
+            console.log(`[WS] Player ${playerId} ready: ${playerEntry.player.isReady}`);
+
+            // Broadcast ready state change to all players
+            broadcast(lobby, JSON.stringify({
+              type: "player_ready_changed",
+              playerId,
+              isReady: playerEntry.player.isReady,
+              players: getPlayerList(lobby),
+            }));
+
+            // Also send to the player who changed their state
+            ws.send(JSON.stringify({
+              type: "player_ready_changed",
+              playerId,
+              isReady: playerEntry.player.isReady,
+              players: getPlayerList(lobby),
+            }));
+          }
         }
 
       } catch (e) {
