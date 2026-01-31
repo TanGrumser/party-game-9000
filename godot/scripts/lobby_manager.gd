@@ -140,7 +140,7 @@ func toggle_ready() -> void:
 	_socket.send_text(JSON.stringify(data))
 
 func are_all_players_ready() -> bool:
-	if _players.size() < 2:
+	if _players.size() < 1:
 		return false
 	for p in _players:
 		if not p.get("isReady", false):

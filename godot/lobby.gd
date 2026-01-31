@@ -144,7 +144,9 @@ func _on_all_players_ready() -> void:
 	_update_ui()
 
 func _on_game_started(_host_id: String) -> void:
-	get_tree().change_scene_to_file("res://scenes/Game.tscn")
+	if not is_inside_tree():
+		return
+	get_tree().change_scene_to_file("res://scenes/level_1.tscn")
 
 func _on_connection_error(message: String) -> void:
 	%StatusLabel.text = "Error: %s" % message
