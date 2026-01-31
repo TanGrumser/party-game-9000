@@ -51,7 +51,8 @@ func _spawn_all_player_balls() -> void:
 	var my_id = LobbyManager.get_player_id()
 	var total_players = players.size()
 
-	print("[Game] Spawning balls for %d players" % total_players)
+	print("[Game] Spawning balls for %d players, my_id=%s" % [total_players, my_id])
+	print("[Game] Players from LobbyManager: %s" % [players])
 
 	# Add main ball as camera target
 	game_camera.add_target(main_ball)
@@ -142,17 +143,22 @@ func _on_game_state_received(state: Dictionary) -> void:
 		ball.sync_from_network(new_pos, new_vel)
 
 func _on_ball_shot_received(player_id: String, shot_data: Dictionary) -> void:
+	print("[Game] ball_shot_received: player_id=%s, is_host=%s, my_id=%s" % [player_id, LobbyManager.is_host(), LobbyManager.get_player_id()])
+	print("[Game] Known balls: %s" % [_balls.keys()])
+
 	# Host applies shots from other players to physics
 	if not LobbyManager.is_host():
+		print("[Game] SKIPPED - not host")
 		return
 
 	# Don't apply our own shots (already applied locally)
 	if player_id == LobbyManager.get_player_id():
+		print("[Game] SKIPPED - own shot")
 		return
 
 	var ball = _balls.get(player_id)
 	if ball == null:
-		print("[Game] No ball found for player %s" % player_id)
+		print("[Game] ERROR: No ball found for player %s in _balls" % player_id)
 		return
 
 	var dir = shot_data.get("direction", {})
@@ -161,7 +167,7 @@ func _on_ball_shot_received(player_id: String, shot_data: Dictionary) -> void:
 	var impulse = direction * power
 
 	ball.apply_central_impulse(impulse)
-	print("[Game] Applied shot from %s: %s" % [player_id, impulse])
+	print("[Game] SUCCESS: Applied shot from %s: %s" % [player_id, impulse])
 
 func _on_player_left(player_id: String, player_name: String) -> void:
 	print("[Game] Player left: %s (%s)" % [player_name, player_id])

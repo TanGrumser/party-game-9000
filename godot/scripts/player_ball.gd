@@ -117,7 +117,7 @@ func _end_drag(pos: Vector2) -> void:
 	var impulse = direction * max_impulse * strength
 	apply_central_impulse(impulse)
 
-	print("[PlayerBall] Drag shot: %s, impulse: %s (strength: %.2f)" % [pos, impulse, strength])
+	print("[PlayerBall] Drag shot: player_id=%s, impulse=%s (strength: %.2f)" % [player_id, impulse, strength])
 
 	# Send shot to other players
 	LobbyManager.send_ball_shot(
@@ -125,6 +125,7 @@ func _end_drag(pos: Vector2) -> void:
 		direction.normalized(),
 		max_impulse * strength
 	)
+	print("[PlayerBall] Sent ball_shot for player_id=%s" % player_id)
 
 # Called by game.gd to sync state from network
 func sync_from_network(pos: Vector2, vel: Vector2) -> void:

@@ -91,6 +91,7 @@ func join_lobby(lobby_id: String, player_name: String) -> void:
 
 func send_ball_shot(ball_id: String, direction: Vector2, power: float) -> void:
 	if not _connected:
+		print("[LobbyManager] send_ball_shot SKIPPED - not connected")
 		return
 	var data = {
 		"type": "ball_shot",
@@ -98,6 +99,7 @@ func send_ball_shot(ball_id: String, direction: Vector2, power: float) -> void:
 		"direction": {"x": direction.x, "y": direction.y},
 		"power": power
 	}
+	print("[LobbyManager] send_ball_shot: ball_id=%s, my_player_id=%s" % [ball_id, _player_id])
 	_socket.send_text(JSON.stringify(data))
 
 func send_game_state(balls: Array) -> void:
@@ -263,10 +265,9 @@ func _handle_message(message: String) -> void:
 			game_state_received.emit(data)
 
 		"ball_shot":
-			ball_shot_received.emit(
-				data.get("playerId", ""),
-				data
-			)
+			var shot_player_id = data.get("playerId", "")
+			print("[LobbyManager] ball_shot received: from player_id=%s, ballId=%s" % [shot_player_id, data.get("ballId", "")])
+			ball_shot_received.emit(shot_player_id, data)
 
 		"error":
 			connection_error.emit(data.get("message", "Unknown error"))
