@@ -22,7 +22,7 @@ interface InputField {
   code: string;
   codeExpiresAt: number;
   timerDuration: number;
-  timerStartedAt: number;
+  timerEndsAt: number;
 }
 
 interface PlayerGameState {
@@ -36,6 +36,8 @@ interface GameState {
   startedAt: number;
   gameOver: boolean;
   playerStates: Map<string, PlayerGameState>;
+  // Maps playerId -> Set of inputIds they can see (codes distributed among players)
+  codeAssignments: Map<string, Set<string>>;
   tickInterval: Timer | null;
 }
 
@@ -64,7 +66,7 @@ const EMOJIS = [
 const TIMER_DURATIONS = [48000, 64000, 80000]; // 48-80 seconds
 const CODE_REFRESH_MIN = 15000; // 15 seconds
 const CODE_REFRESH_MAX = 20000; // 20 seconds
-const DIFFICULTY_TICK = 30000; // 30 seconds
+const DIFFICULTY_TICK = 60000; // 30 seconds
 const DIFFICULTY_INCREASE = 0.1; // 10% faster each tick
 const TICK_INTERVAL = 500; // 500ms
 const MIN_PLAYERS = 2;
@@ -132,10 +134,8 @@ function getDifficultyMultiplier(gameState: GameState): number {
   return 1 + ticks * DIFFICULTY_INCREASE;
 }
 
-function getEffectiveTimeRemaining(input: InputField, multiplier: number): number {
-  const elapsed = Date.now() - input.timerStartedAt;
-  const effectiveDuration = input.timerDuration / multiplier;
-  return Math.max(0, effectiveDuration - elapsed);
+function getTimeRemaining(input: InputField): number {
+  return Math.max(0, input.timerEndsAt - Date.now());
 }
 
 // ============ GAME LOGIC ============
@@ -148,6 +148,7 @@ function initializeGameState(lobby: Lobby): GameState {
   const allEmojis = shuffleArray(EMOJIS);
   let emojiIndex = 0;
 
+  // First, create all player inputs
   for (const [playerId, { player }] of lobby.players) {
     const inputs: InputField[] = [];
     const shuffledDurations = shuffleArray(TIMER_DURATIONS);
@@ -159,7 +160,7 @@ function initializeGameState(lobby: Lobby): GameState {
         code: generateCode(),
         codeExpiresAt: generateCodeExpiry(),
         timerDuration: shuffledDurations[i]!,
-        timerStartedAt: Date.now(),
+        timerEndsAt: Date.now() + shuffledDurations[i]!,
       });
     }
 
@@ -170,11 +171,51 @@ function initializeGameState(lobby: Lobby): GameState {
     });
   }
 
+  // Now distribute codes: each player sees codes for OTHER players' inputs
+  // Each player should see the same number of codes as they have inputs (3)
+  // Codes are distributed so no one player sees all codes for another player
+  const codeAssignments = new Map<string, Set<string>>();
+
+  // Initialize empty sets for each player
+  for (const playerId of playerIds) {
+    codeAssignments.set(playerId, new Set());
+  }
+
+  // Collect all inputs with their owner info
+  const allInputs: Array<{ inputId: string; ownerId: string }> = [];
+  for (const [ownerId, playerState] of playerStates) {
+    for (const input of playerState.inputs) {
+      allInputs.push({ inputId: input.id, ownerId });
+    }
+  }
+
+  // Shuffle inputs for random distribution
+  const shuffledInputs = shuffleArray(allInputs);
+
+  // Distribute each input to a player who is NOT the owner
+  // Use round-robin among eligible players, prioritizing those with fewer codes
+  for (const { inputId, ownerId } of shuffledInputs) {
+    // Find eligible players (not the owner) sorted by how many codes they have
+    const eligiblePlayers = playerIds
+      .filter(pid => pid !== ownerId)
+      .sort((a, b) => {
+        const aCount = codeAssignments.get(a)?.size ?? 0;
+        const bCount = codeAssignments.get(b)?.size ?? 0;
+        return aCount - bCount;
+      });
+
+    if (eligiblePlayers.length > 0) {
+      // Assign to the player with the fewest codes
+      codeAssignments.get(eligiblePlayers[0]!)!.add(inputId);
+    }
+  }
+
   return {
     lobbyId: lobby.id,
     startedAt: Date.now(),
     gameOver: false,
     playerStates,
+    codeAssignments,
     tickInterval: null,
   };
 }
@@ -190,26 +231,32 @@ function getVisibleCodesForPlayer(gameState: GameState, playerId: string) {
   }> = [];
 
   const now = Date.now();
+  const assignedInputIds = gameState.codeAssignments.get(playerId);
+  if (!assignedInputIds) return visibleCodes;
 
+  // Only show codes that are assigned to this player
   for (const [otherPlayerId, playerState] of gameState.playerStates) {
     if (otherPlayerId === playerId) continue; // Don't show own codes
 
     for (const input of playerState.inputs) {
-      visibleCodes.push({
-        targetPlayerId: otherPlayerId,
-        targetPlayerName: playerState.playerName,
-        inputId: input.id,
-        emoji: input.emoji,
-        code: input.code,
-        codeExpiresIn: Math.max(0, input.codeExpiresAt - now),
-      });
+      // Only include if this input is assigned to this player
+      if (assignedInputIds.has(input.id)) {
+        visibleCodes.push({
+          targetPlayerId: otherPlayerId,
+          targetPlayerName: playerState.playerName,
+          inputId: input.id,
+          emoji: input.emoji,
+          code: input.code,
+          codeExpiresIn: Math.max(0, input.codeExpiresAt - now),
+        });
+      }
     }
   }
 
   return visibleCodes;
 }
 
-function getPlayerInputsState(gameState: GameState, playerId: string, multiplier: number) {
+function getPlayerInputsState(gameState: GameState, playerId: string) {
   const playerState = gameState.playerStates.get(playerId);
   if (!playerState) return [];
 
@@ -217,7 +264,7 @@ function getPlayerInputsState(gameState: GameState, playerId: string, multiplier
     id: input.id,
     emoji: input.emoji,
     timerDuration: input.timerDuration,
-    timeRemaining: getEffectiveTimeRemaining(input, multiplier),
+    timeRemaining: getTimeRemaining(input),
   }));
 }
 
@@ -239,11 +286,9 @@ function refreshExpiredCodes(gameState: GameState): boolean {
 }
 
 function checkGameOver(gameState: GameState): { gameOver: boolean; loser?: { playerName: string; emoji: string } } {
-  const multiplier = getDifficultyMultiplier(gameState);
-
   for (const playerState of gameState.playerStates.values()) {
     for (const input of playerState.inputs) {
-      const timeRemaining = getEffectiveTimeRemaining(input, multiplier);
+      const timeRemaining = getTimeRemaining(input);
       if (timeRemaining <= 0) {
         return {
           gameOver: true,
@@ -282,8 +327,9 @@ function handleCodeSubmission(
 
   // Check if code matches (case-insensitive)
   if (input.code.toUpperCase() === submittedCode.toUpperCase()) {
-    // Reset timer
-    input.timerStartedAt = Date.now();
+    // Reset timer - apply current difficulty multiplier to new timer
+    const multiplier = getDifficultyMultiplier(gameState);
+    input.timerEndsAt = Date.now() + (input.timerDuration / multiplier);
     // Generate new code
     input.code = generateCode();
     input.codeExpiresAt = generateCodeExpiry();
@@ -346,7 +392,7 @@ function startGameTick(lobby: Lobby) {
 
       const inputs = playerState.inputs.map((input) => ({
         id: input.id,
-        timeRemaining: getEffectiveTimeRemaining(input, multiplier),
+        timeRemaining: getTimeRemaining(input),
       }));
 
       const tickMessage: Record<string, unknown> = {
@@ -380,13 +426,12 @@ function startGame(lobby: Lobby): boolean {
 
   // Initialize game state
   lobby.gameState = initializeGameState(lobby);
-  const multiplier = getDifficultyMultiplier(lobby.gameState);
 
   console.log(`[GAME] Starting game in ${lobby.id} with ${lobby.players.size} players`);
 
   // Send game_start to each player with their specific view
   for (const [playerId] of lobby.players) {
-    const inputs = getPlayerInputsState(lobby.gameState, playerId, multiplier);
+    const inputs = getPlayerInputsState(lobby.gameState, playerId);
     const visibleCodes = getVisibleCodesForPlayer(lobby.gameState, playerId);
 
     sendToPlayer(
