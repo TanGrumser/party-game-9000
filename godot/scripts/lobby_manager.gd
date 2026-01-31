@@ -23,6 +23,7 @@ var _player_id: String = ""
 var _lobby_id: String = ""
 var _is_host: bool = false
 var _connected: bool = false
+var _players: Array = []  # List of {id, name, isHost}
 
 func _ready() -> void:
 	_http_request = HTTPRequest.new()
@@ -129,6 +130,9 @@ func get_player_id() -> String:
 func get_lobby_id() -> String:
 	return _lobby_id
 
+func get_players() -> Array:
+	return _players
+
 # ============ INTERNAL ============
 
 var _pending_action: String = ""
@@ -174,23 +178,39 @@ func _handle_message(message: String) -> void:
 			lobby_joined.emit(_lobby_id, _player_id, _is_host)
 			print("[LobbyManager] Joined as %s (host: %s)" % [_player_id, _is_host])
 
-			# Emit player_joined for all existing players (including ourselves)
+			# Store and emit player_joined for all existing players (including ourselves)
+			_players.clear()
 			var players = data.get("players", [])
 			for p in players:
-				player_joined.emit(p.get("id", ""), p.get("name", ""), p.get("isHost", false))
+				var player_data = {"id": p.get("id", ""), "name": p.get("name", ""), "isHost": p.get("isHost", false)}
+				_players.append(player_data)
+				player_joined.emit(player_data.id, player_data.name, player_data.isHost)
 
 		"player_joined":
-			player_joined.emit(
-				data.get("playerId", ""),
-				data.get("playerName", ""),
-				data.get("isHost", false)
-			)
+			var player_id = data.get("playerId", "")
+			var player_name = data.get("playerName", "")
+			var is_host = data.get("isHost", false)
+
+			# Add to players list if not already there
+			var found = false
+			for p in _players:
+				if p.id == player_id:
+					found = true
+					break
+			if not found:
+				_players.append({"id": player_id, "name": player_name, "isHost": is_host})
+
+			player_joined.emit(player_id, player_name, is_host)
 
 		"player_left":
-			player_left.emit(
-				data.get("playerId", ""),
-				data.get("playerName", "")
-			)
+			var player_id = data.get("playerId", "")
+			var player_name = data.get("playerName", "")
+
+			# Remove from players list
+			_players = _players.filter(func(p): return p.id != player_id)
+
+			player_left.emit(player_id, player_name)
+
 			# Check if we became host
 			if data.get("newHostId", "") == _player_id:
 				_is_host = true

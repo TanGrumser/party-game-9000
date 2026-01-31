@@ -1,27 +1,13 @@
 [gd_scene format=3 uid="uid://dlmgjqdmolwmq"]
 
-[ext_resource type="Texture2D" uid="uid://c10xcncbtx813" path="res://sprites/circle.png" id="1_ibkli"]
-[ext_resource type="Script" path="res://scripts/game.gd" id="2_game"]
-[ext_resource type="Script" uid="uid://lkxtor2rny0o" path="res://scripts/player_ball.gd" id="3_ball"]
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_qbsmt"]
+[ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="2_game"]
+[ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="4_78awf"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
 script = ExtResource("2_game")
 
-[node name="RigidBody2D" type="RigidBody2D" parent="." unique_id=1126309292]
-position = Vector2(372, 608)
-gravity_scale = 0.0
-linear_damp = 1.0
-script = ExtResource("3_ball")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D" unique_id=1666027374]
-scale = Vector2(7.98, 7.98)
-shape = SubResource("CircleShape2D_qbsmt")
-
-[node name="Sprite2D" type="Sprite2D" parent="RigidBody2D" unique_id=1212723107]
-scale = Vector2(0.22380953, 0.22380945)
-texture = ExtResource("1_ibkli")
+[node name="MainBall" parent="." unique_id=1634294921 instance=ExtResource("4_78awf")]
+position = Vector2(372, 407)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=506829652]
 
