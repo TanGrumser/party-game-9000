@@ -343,6 +343,15 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
     setGameOverData(data);
   };
 
+  const handleBackToLobby = () => {
+    setGameOver(false);
+    setGameOverData(null);
+    setGameStarted(false);
+    setInitialGameData(null);
+    setIncomingBallIds(new Set());
+    setPreviewBalls(new Map());
+  };
+
   // ============ RENDER ============
 
   // Game Over Screen
@@ -352,7 +361,7 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
         explodedPlayerName={gameOverData.explodedPlayerName}
         explodedEmoji={gameOverData.explodedEmoji}
         survivedTime={gameOverData.survivedTime}
-        onBack={handleLeave}
+        onBack={handleBackToLobby}
       />
     );
   }
