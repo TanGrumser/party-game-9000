@@ -23,6 +23,12 @@ interface VisibleCodeWithTimestamp extends VisibleCode {
   receivedAt: number;
 }
 
+interface ExplosionEvent {
+  playerName: string;
+  emoji: string;
+  timestamp: number;
+}
+
 interface GameProps {
   lobbyId: string;
   playerName: string;
@@ -30,6 +36,7 @@ interface GameProps {
   wsRef: React.RefObject<WebSocket | null>;
   initialInputs: InputFieldState[];
   initialVisibleCodes: VisibleCode[];
+  initialLives: number;
   onGameOver: (data: GameOverData) => void;
 }
 
@@ -42,10 +49,12 @@ export interface GameOverData {
 
 // ============ COMPONENT ============
 
-export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, initialVisibleCodes, onGameOver }: GameProps) {
+export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, initialVisibleCodes, initialLives, onGameOver }: GameProps) {
   const [inputs, setInputs] = useState<InputFieldState[]>(initialInputs);
   const [survivedTime, setSurvivedTime] = useState(0);
   const [difficultyMultiplier, setDifficultyMultiplier] = useState(1);
+  const [lives, setLives] = useState(initialLives);
+  const [explosions, setExplosions] = useState<ExplosionEvent[]>([]);
 
   // Store visible codes with timestamp when received
   const [visibleCodes, setVisibleCodes] = useState<VisibleCodeWithTimestamp[]>(() => {
@@ -90,6 +99,16 @@ export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, init
     return () => timeouts.forEach(clearTimeout);
   }, [codeResults]);
 
+  // Clear explosions after 3 seconds
+  useEffect(() => {
+    if (explosions.length === 0) return;
+    const timeout = setTimeout(() => {
+      const now = Date.now();
+      setExplosions((prev) => prev.filter((e) => now - e.timestamp < 3000));
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, [explosions]);
+
   // Listen for game messages
   useEffect(() => {
     const ws = wsRef.current;
@@ -109,6 +128,9 @@ export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, init
             );
             setSurvivedTime(data.survivedTime);
             setDifficultyMultiplier(data.difficultyMultiplier);
+            if (data.lives !== undefined) {
+              setLives(data.lives);
+            }
             if (data.visibleCodes) {
               // Add timestamp to new codes
               const receivedAt = Date.now();
@@ -116,6 +138,18 @@ export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, init
                 data.visibleCodes.map((code: VisibleCode) => ({ ...code, receivedAt }))
               );
             }
+            break;
+
+          case "bomb_exploded":
+            setLives(data.livesRemaining);
+            setExplosions((prev) => [
+              ...prev,
+              {
+                playerName: data.explodedPlayerName,
+                emoji: data.explodedEmoji,
+                timestamp: Date.now(),
+              },
+            ]);
             break;
 
           case "code_result":
@@ -196,11 +230,24 @@ export function Game({ lobbyId, playerName, playerId, wsRef, initialInputs, init
     <div className="page game-page">
       <header className="game-header">
         <span className="lobby-code">{lobbyId}</span>
+        <span className="lives">{lives}x❤️</span>
         <span className="survived-time">⏱ {formatTime(survivedTime)}</span>
         <span className="difficulty">
           {difficultyMultiplier > 1 ? `${Math.round((difficultyMultiplier - 1) * 100)}% faster` : "Normal"}
         </span>
       </header>
+
+      {/* Explosion overlay */}
+      {explosions.map((explosion, index) => (
+        <div key={explosion.timestamp + index} className="explosion-overlay">
+          <div className="explosion-content">
+            <div className="explosion-emoji">{explosion.emoji}</div>
+            <div className="explosion-text">
+              <strong>{explosion.playerName}</strong>'s bomb exploded!
+            </div>
+          </div>
+        </div>
+      ))}
 
       <div className="game-content">
         {/* Player's input fields */}

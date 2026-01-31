@@ -49,6 +49,7 @@ interface GameState {
   lobbyId: string;
   startedAt: number;
   gameOver: boolean;
+  lives: number;
   playerStates: Map<string, PlayerGameState>;
   // Maps playerId -> Set of inputIds they can see (codes distributed among players)
   codeAssignments: Map<string, Set<string>>;
@@ -88,6 +89,7 @@ const DIFFICULTY_TICK = 60000; // 30 seconds
 const DIFFICULTY_INCREASE = 0.1; // 10% faster each tick
 const TICK_INTERVAL = 500; // 500ms
 const MIN_PLAYERS = 2;
+const STARTING_LIVES = 5;
 
 // ============ STATE ============
 
@@ -237,6 +239,7 @@ function initializeGameState(lobby: Lobby): GameState {
     lobbyId: lobby.id,
     startedAt: Date.now(),
     gameOver: false,
+    lives: STARTING_LIVES,
     playerStates,
     codeAssignments,
     tickInterval: null,
@@ -359,23 +362,41 @@ function checkIncomingTimeouts(lobby: Lobby) {
   }
 }
 
-function checkGameOver(gameState: GameState): { gameOver: boolean; loser?: { playerName: string; emoji: string } } {
+function checkForExplosions(gameState: GameState): Array<{ playerName: string; playerId: string; emoji: string; inputId: string }> {
+  const explosions: Array<{ playerName: string; playerId: string; emoji: string; inputId: string }> = [];
+
   for (const playerState of gameState.playerStates.values()) {
     for (const input of playerState.inputs) {
       const timeRemaining = getTimeRemaining(input);
       if (timeRemaining <= 0) {
-        return {
-          gameOver: true,
-          loser: {
-            playerName: playerState.playerName,
-            emoji: input.emoji,
-          },
-        };
+        explosions.push({
+          playerName: playerState.playerName,
+          playerId: playerState.playerId,
+          emoji: input.emoji,
+          inputId: input.id,
+        });
       }
     }
   }
 
-  return { gameOver: false };
+  return explosions;
+}
+
+function handleExplosion(gameState: GameState, explosion: { playerId: string; inputId: string }): void {
+  // Reset the timer for the exploded input
+  const playerState = gameState.playerStates.get(explosion.playerId);
+  if (!playerState) return;
+
+  const input = playerState.inputs.find(i => i.id === explosion.inputId);
+  if (!input) return;
+
+  // Reset timer with current difficulty multiplier
+  const multiplier = getDifficultyMultiplier(gameState);
+  input.timerEndsAt = Date.now() + (input.timerDuration / multiplier);
+
+  // Generate new code
+  input.code = generateCode();
+  input.codeExpiresAt = generateCodeExpiry();
 }
 
 function handleCodeSubmission(
@@ -427,30 +448,52 @@ function startGameTick(lobby: Lobby) {
       return;
     }
 
-    // Check for game over
-    const gameOverCheck = checkGameOver(gameState);
-    if (gameOverCheck.gameOver && gameOverCheck.loser) {
-      gameState.gameOver = true;
+    // Check for explosions
+    const explosions = checkForExplosions(gameState);
+    for (const explosion of explosions) {
+      // Decrement lives
+      gameState.lives--;
+
+      console.log(`[GAME] ${explosion.playerName}'s ${explosion.emoji} exploded! Lives remaining: ${gameState.lives}`);
+
+      // Handle the explosion (reset timer)
+      handleExplosion(gameState, explosion);
 
       const survivedTime = Math.floor((Date.now() - gameState.startedAt) / 1000);
 
-      broadcast(
-        lobby,
-        JSON.stringify({
-          type: "game_over",
-          winner: false,
-          explodedPlayerName: gameOverCheck.loser.playerName,
-          explodedEmoji: gameOverCheck.loser.emoji,
-          survivedTime,
-        })
-      );
+      if (gameState.lives <= 0) {
+        // Game over!
+        gameState.gameOver = true;
 
-      console.log(`[GAME] Game over in ${lobby.id}! ${gameOverCheck.loser.playerName}'s ${gameOverCheck.loser.emoji} exploded after ${survivedTime}s`);
+        broadcast(
+          lobby,
+          JSON.stringify({
+            type: "game_over",
+            winner: false,
+            explodedPlayerName: explosion.playerName,
+            explodedEmoji: explosion.emoji,
+            survivedTime,
+          })
+        );
 
-      if (gameState.tickInterval) {
-        clearInterval(gameState.tickInterval);
+        console.log(`[GAME] Game over in ${lobby.id}! No lives remaining after ${survivedTime}s`);
+
+        if (gameState.tickInterval) {
+          clearInterval(gameState.tickInterval);
+        }
+        return;
+      } else {
+        // Send bomb_exploded message to all players
+        broadcast(
+          lobby,
+          JSON.stringify({
+            type: "bomb_exploded",
+            explodedPlayerName: explosion.playerName,
+            explodedEmoji: explosion.emoji,
+            livesRemaining: gameState.lives,
+          })
+        );
       }
-      return;
     }
 
     // Refresh expired codes
@@ -474,6 +517,7 @@ function startGameTick(lobby: Lobby) {
         serverTime,
         difficultyMultiplier: multiplier,
         survivedTime: Math.floor((serverTime - gameState.startedAt) / 1000),
+        lives: gameState.lives,
         inputs,
       };
 
@@ -515,6 +559,7 @@ function startGame(lobby: Lobby): boolean {
         type: "game_start",
         inputs,
         visibleCodes,
+        lives: lobby.gameState.lives,
       })
     );
   }

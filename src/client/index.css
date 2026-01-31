@@ -551,6 +551,11 @@ h1 {
   font-size: 1rem;
 }
 
+.lives {
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+}
+
 .survived-time {
   font-size: 1.1rem;
   font-weight: 600;
@@ -560,6 +565,74 @@ h1 {
 .difficulty {
   font-size: 0.8rem;
   color: #facc15;
+}
+
+/* Explosion Overlay */
+.explosion-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  animation: explosion-fade 3s ease-out forwards;
+  pointer-events: none;
+}
+
+.explosion-content {
+  text-align: center;
+  animation: explosion-shake 0.5s ease-out;
+}
+
+.explosion-emoji {
+  font-size: 6rem;
+  animation: explosion-bounce 0.5s ease-out;
+}
+
+.explosion-text {
+  font-size: 1.5rem;
+  color: #ef4444;
+  margin-top: 1rem;
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes explosion-fade {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes explosion-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+@keyframes explosion-bounce {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .game-content {

@@ -57,7 +57,7 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [gameOverData, setGameOverData] = useState<GameOverData | null>(null);
-  const [initialGameData, setInitialGameData] = useState<{ inputs: unknown[]; visibleCodes: unknown[] } | null>(null);
+  const [initialGameData, setInitialGameData] = useState<{ inputs: unknown[]; visibleCodes: unknown[]; lives: number } | null>(null);
 
   // Error state
   const [error, setError] = useState("");
@@ -189,7 +189,7 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
             break;
 
           case "game_start":
-            setInitialGameData({ inputs: data.inputs, visibleCodes: data.visibleCodes });
+            setInitialGameData({ inputs: data.inputs, visibleCodes: data.visibleCodes, lives: data.lives });
             setGameStarted(true);
             setBalls(data.balls || []);
             setCollectedBalls(data.collectedBalls || {});
@@ -367,6 +367,7 @@ export function Lobby({ lobbyId, playerName, onLeave }: LobbyProps) {
         wsRef={wsRef}
         initialInputs={initialGameData.inputs}
         initialVisibleCodes={initialGameData.visibleCodes}
+        initialLives={initialGameData.lives}
         onGameOver={handleGameOver}
       />
     );
