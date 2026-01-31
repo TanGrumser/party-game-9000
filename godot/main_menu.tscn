@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://byxl07l20p8jc"]
+
+[ext_resource type="Script" uid="uid://puqkkxqvm00e" path="res://main_menu.gd" id="1_06t4h"]
+
+[node name="MainMenu" type="Control" unique_id=1967064445]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_06t4h")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=459609817]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -21.5
+offset_right = 48.0
+offset_bottom = 57.23999
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="Create Game" type="Button" parent="VBoxContainer" unique_id=1577080558]
+layout_mode = 2
+text = "Start Game"
+
+[node name="NameInput" type="TextEdit" parent="VBoxContainer" unique_id=804626188]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(1.33, 40)
+layout_mode = 2
+placeholder_text = "Your Name"
+
+[node name="HTTPRequest" type="HTTPRequest" parent="." unique_id=540926784]
+
+[connection signal="pressed" from="VBoxContainer/Create Game" to="." method="_on_create_game_pressed"]

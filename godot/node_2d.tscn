@@ -1,0 +1,57 @@
+[gd_scene format=3 uid="uid://c64cr4tg6ooag"]
+
+[ext_resource type="Script" uid="uid://l6jh8mgysi3d" path="res://player_controller.gd" id="1_0e48y"]
+[ext_resource type="Texture2D" uid="uid://dm434h04lgbrr" path="res://icon.svg" id="1_wtcfe"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_wtcfe"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0e48y"]
+size = Vector2(855, 94)
+
+[node name="Main Scene" type="Node" unique_id=284977286]
+
+[node name="Node2D" type="Node2D" parent="." unique_id=432646358]
+
+[node name="Camera2D" type="Camera2D" parent="Node2D" unique_id=1351594427]
+
+[node name="Character" type="Node" parent="Node2D" unique_id=1841427048]
+
+[node name="RigidBody2D" type="RigidBody2D" parent="Node2D/Character" unique_id=2082435685]
+script = ExtResource("1_0e48y")
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/Character/RigidBody2D" unique_id=382118848]
+texture = ExtResource("1_wtcfe")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Node2D/Character/RigidBody2D" unique_id=245600151]
+shape = SubResource("CircleShape2D_wtcfe")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="Node2D" unique_id=2083784998]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Node2D/StaticBody2D" unique_id=1131057670]
+position = Vector2(-16.5, 213)
+shape = SubResource("RectangleShape2D_0e48y")
+
+[node name="Control" type="Control" parent="." unique_id=2047723542]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Button" type="Button" parent="Control" unique_id=229725842]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -4.0
+offset_top = -4.0
+offset_right = 4.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(16.16, 5.2799997)
