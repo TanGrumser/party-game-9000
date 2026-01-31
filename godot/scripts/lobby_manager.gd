@@ -15,6 +15,7 @@ signal game_started(host_id: String)
 signal returned_to_lobby()
 signal game_state_received(state: Dictionary)
 signal ball_shot_received(player_id: String, shot_data: Dictionary)
+signal ball_respawn_received(player_id: String, spawn_position: Dictionary)
 
 const DEFAULT_SERVER_URL = "http://localhost:3000/api"
 const DEFAULT_WS_URL = "ws://localhost:3000/ws"
@@ -103,6 +104,18 @@ func send_ball_shot(ball_id: String, direction: Vector2, power: float) -> void:
 		"power": power
 	}
 	print("[LobbyManager] send_ball_shot: ball_id=%s, my_player_id=%s" % [ball_id, _player_id])
+	_socket.send_text(JSON.stringify(data))
+
+func send_ball_respawn(ball_id: String, spawn_pos: Vector2) -> void:
+	if not _connected:
+		print("[LobbyManager] send_ball_respawn SKIPPED - not connected")
+		return
+	var data = {
+		"type": "ball_respawn",
+		"ballId": ball_id,
+		"spawnPosition": {"x": spawn_pos.x, "y": spawn_pos.y}
+	}
+	print("[LobbyManager] send_ball_respawn: ball_id=%s, spawn_pos=%s" % [ball_id, spawn_pos])
 	_socket.send_text(JSON.stringify(data))
 
 func send_game_state(balls: Array) -> void:
@@ -299,6 +312,12 @@ func _handle_message(message: String) -> void:
 			var shot_player_id = data.get("playerId", "")
 			print("[LobbyManager] ball_shot received: from player_id=%s, ballId=%s" % [shot_player_id, data.get("ballId", "")])
 			ball_shot_received.emit(shot_player_id, data)
+
+		"ball_respawn":
+			var respawn_player_id = data.get("playerId", "")
+			var spawn_pos = data.get("spawnPosition", {})
+			print("[LobbyManager] ball_respawn received: from player_id=%s, spawn_pos=%s" % [respawn_player_id, spawn_pos])
+			ball_respawn_received.emit(respawn_player_id, spawn_pos)
 
 		"player_ready_changed":
 			var player_id = data.get("playerId", "")

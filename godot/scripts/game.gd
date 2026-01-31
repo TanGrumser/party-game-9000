@@ -19,6 +19,7 @@ func _ready() -> void:
 
 	LobbyManager.game_state_received.connect(_on_game_state_received)
 	LobbyManager.ball_shot_received.connect(_on_ball_shot_received)
+	LobbyManager.ball_respawn_received.connect(_on_ball_respawn_received)
 	LobbyManager.player_left.connect(_on_player_left)
 
 	# Check if we have a lobby connection, otherwise spawn debug ball
@@ -125,7 +126,9 @@ func _on_game_state_received(state: Dictionary) -> void:
 	if LobbyManager.is_host():
 		return
 
+	var timestamp = state.get("timestamp", 0)
 	var balls_data = state.get("balls", [])
+
 	for ball_data in balls_data:
 		var player_id = ball_data.get("playerId", "")
 		if player_id.is_empty():
@@ -138,7 +141,7 @@ func _on_game_state_received(state: Dictionary) -> void:
 
 		# Handle main ball
 		if player_id == "main":
-			main_ball.sync_from_network(new_pos, new_vel)
+			main_ball.sync_from_network(new_pos, new_vel, timestamp)
 			continue
 
 		# Handle player balls (including our own - host is authoritative)
@@ -147,7 +150,7 @@ func _on_game_state_received(state: Dictionary) -> void:
 			print("[Game] Warning: No ball for player %s" % player_id)
 			continue
 
-		ball.sync_from_network(new_pos, new_vel)
+		ball.sync_from_network(new_pos, new_vel, timestamp)
 
 func _on_ball_shot_received(player_id: String, shot_data: Dictionary) -> void:
 	print("[Game] ball_shot_received: player_id=%s, is_host=%s, my_id=%s" % [player_id, LobbyManager.is_host(), LobbyManager.get_player_id()])
@@ -175,6 +178,29 @@ func _on_ball_shot_received(player_id: String, shot_data: Dictionary) -> void:
 
 	ball.apply_central_impulse(impulse)
 	print("[Game] SUCCESS: Applied shot from %s: %s" % [player_id, impulse])
+
+func _on_ball_respawn_received(player_id: String, spawn_pos_data: Dictionary) -> void:
+	var spawn_pos = Vector2(spawn_pos_data.get("x", 0), spawn_pos_data.get("y", 0))
+	print("[Game] ball_respawn received: player_id=%s, spawn_pos=%s" % [player_id, spawn_pos])
+
+	# Handle main ball respawn
+	if player_id == "main":
+		# Only non-host handles remote main ball respawn
+		if not LobbyManager.is_host():
+			main_ball.handle_remote_respawn(spawn_pos)
+		return
+
+	# Handle player ball respawn
+	var ball = _balls.get(player_id)
+	if ball == null:
+		print("[Game] Warning: No ball for respawn player %s" % player_id)
+		return
+
+	# Don't handle our own respawn (we triggered it locally)
+	if player_id == LobbyManager.get_player_id():
+		return
+
+	ball.handle_remote_respawn(spawn_pos)
 
 func _on_player_left(player_id: String, player_name: String) -> void:
 	print("[Game] Player left: %s (%s)" % [player_name, player_id])

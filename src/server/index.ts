@@ -146,6 +146,17 @@ const server = serve({
           }));
         }
 
+        // Ball respawn message - player's ball respawned
+        // Contains: playerId, spawnPosition {x, y}
+        if (data.type === "ball_respawn") {
+          console.log(`[WS] Ball respawn from ${playerId}`);
+          // Broadcast to all players including sender for confirmation
+          broadcast(lobby, JSON.stringify({
+            ...data,
+            playerId,
+          }));
+        }
+
         // Start game message
         if (data.type === "start_game") {
           if (playerId !== lobby.hostId) {
@@ -244,7 +255,7 @@ const server = serve({
     },
   },
 
-  fetch(req, server) {
+  async fetch(req, server) {
     const url = new URL(req.url);
 
     // Handle CORS preflight
@@ -296,6 +307,20 @@ const server = serve({
       }
 
       return new Response("WebSocket upgrade failed", { status: 500, headers: corsHeaders });
+    }
+
+    // Serve static files from /build in dev mode
+    if (process.env.NODE_ENV !== "production") {
+      const filePath = url.pathname === "/" ? "/index.html" : url.pathname;
+      const file = Bun.file(`${import.meta.dir}/../../build${filePath}`);
+      if (await file.exists()) {
+        return new Response(file, {
+          headers: {
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
+          },
+        });
+      }
     }
 
     return new Response("Not found", { status: 404, headers: corsHeaders });

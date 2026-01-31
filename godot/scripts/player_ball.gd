@@ -42,10 +42,18 @@ func _update_appearance() -> void:
 		if texture:
 			sprite.texture = texture
 
+# Network interpolation for smooth remote entity movement
+var _interpolator: NetworkInterpolator = NetworkInterpolator.new()
+
 # Network sync state (applied in _integrate_forces)
 var _sync_pending: bool = false
 var _sync_position: Vector2
 var _sync_velocity: Vector2
+
+# Correction settings for local player
+const LOCAL_CORRECTION_THRESHOLD: float = 50.0  # Pixels before correcting local player
+const LOCAL_CORRECTION_RATE: float = 0.2  # Gentle correction rate
+const REMOTE_CORRECTION_RATE: float = 0.3  # Correction rate for remote entities
 
 # Respawn state (applied in _integrate_forces)
 var _respawn_pending: bool = false
@@ -153,6 +161,9 @@ func respawn() -> void:
 	burnt_sound.play()
 	print("[PlayerBall] %s died, respawning in %.1f seconds at %s" % [player_id, respawn_delay, spawn_position])
 
+	# Clear interpolation buffer to prevent sliding from old position
+	_interpolator.clear()
+
 	# Store collision settings and disable
 	_stored_collision_layer = collision_layer
 	_stored_collision_mask = collision_mask
@@ -163,6 +174,10 @@ func respawn() -> void:
 	visible = false
 	freeze = true
 	global_position = Vector2(-99999, -99999)
+
+	# Send respawn event to network (only local player triggers this)
+	if is_local:
+		LobbyManager.send_ball_respawn(player_id, spawn_position)
 
 	# Create respawn timer
 	var timer = get_tree().create_timer(respawn_delay)
@@ -181,11 +196,34 @@ func _do_respawn() -> void:
 	print("[PlayerBall] %s respawned at %s" % [player_id, spawn_position])
 
 # Called by game.gd to sync state from network
-func sync_from_network(pos: Vector2, vel: Vector2) -> void:
-	_sync_position = pos
-	_sync_velocity = vel
-	_sync_pending = true
-	sleeping = false  # Wake up body so _integrate_forces gets called
+func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
+	if is_local:
+		# Local player: only correct if significantly diverged
+		var pos_diff = (pos - global_position).length()
+		if pos_diff > LOCAL_CORRECTION_THRESHOLD:
+			# Queue gentle correction
+			_sync_position = global_position.lerp(pos, LOCAL_CORRECTION_RATE)
+			_sync_velocity = linear_velocity.lerp(vel, LOCAL_CORRECTION_RATE)
+			_sync_pending = true
+			sleeping = false
+		return
+
+	# Remote players: add to interpolation buffer
+	_interpolator.add_state(pos, vel, timestamp)
+
+func _process(delta: float) -> void:
+	# Skip interpolation for local player or host
+	if is_local or LobbyManager.is_host():
+		return
+
+	# Update interpolator and get interpolated values
+	_interpolator.update()
+
+	if _interpolator.has_valid_state:
+		_sync_position = _interpolator.interpolated_position
+		_sync_velocity = _interpolator.interpolated_velocity
+		_sync_pending = true
+		sleeping = false
 
 # Apply network sync during physics step (safe way to modify RigidBody2D)
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
@@ -197,8 +235,40 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 
 	if _sync_pending:
 		_sync_pending = false
-		state.transform.origin = _sync_position
-		state.linear_velocity = _sync_velocity
+
+		if is_local:
+			# Local player: already lerped in sync_from_network, apply directly
+			state.transform.origin = _sync_position
+			state.linear_velocity = _sync_velocity
+		else:
+			# Remote players: smooth correction toward interpolated target
+			var pos_error = _sync_position - state.transform.origin
+			var vel_error = _sync_velocity - state.linear_velocity
+
+			state.transform.origin += pos_error * REMOTE_CORRECTION_RATE
+			state.linear_velocity += vel_error * REMOTE_CORRECTION_RATE
+
+func handle_remote_respawn(spawn_pos: Vector2) -> void:
+	"""Called when another client reports this ball respawned."""
+	print("[PlayerBall] %s remote respawn at %s" % [player_id, spawn_pos])
+
+	# Clear interpolation buffer to prevent sliding
+	_interpolator.clear()
+
+	# Update spawn position if provided
+	if spawn_pos != Vector2.ZERO:
+		spawn_position = spawn_pos
+
+	# Immediately snap to spawn position (no interpolation)
+	_respawn_pending = true
+	sleeping = false
+
+	# Restore visibility and collision
+	visible = true
+	freeze = false
+	if _stored_collision_layer != 0:
+		collision_layer = _stored_collision_layer
+		collision_mask = _stored_collision_mask
 
 func _on_body_entered(body: Node) -> void:
 	# Only local player handles their own collision

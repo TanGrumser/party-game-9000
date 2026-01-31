@@ -54,17 +54,30 @@ func _ball_fell_in(ball: RigidBody2D) -> void:
 	# Remove from tracking
 	_balls_in_range.erase(ball)
 
-	# Hide and disable the ball
-	ball.visible = false
-	ball.set_deferred("freeze", true)
+	# Only trigger respawn for locally-controlled balls
+	# Player balls: only if is_local
+	# Main ball: only if we're the host
+	var should_respawn = false
+	if ball.has_method("respawn"):
+		if "is_local" in ball:
+			# Player ball - only respawn if local
+			should_respawn = ball.is_local
+		else:
+			# Main ball - only respawn if host
+			should_respawn = LobbyManager.is_host()
 
-	# Create respawn timer
-	var timer = get_tree().create_timer(respawn_delay)
-	timer.timeout.connect(_respawn_ball.bind(ball))
+	if should_respawn:
+		print("[Hole] Ball fell in, using ball.respawn()")
+		ball.respawn()
+	elif not ball.has_method("respawn"):
+		# Fallback for balls without respawn method
+		print("[Hole] Ball fell in (no respawn method), respawning in %.1f seconds" % respawn_delay)
+		ball.visible = false
+		ball.set_deferred("freeze", true)
+		var timer = get_tree().create_timer(respawn_delay)
+		timer.timeout.connect(_respawn_ball_fallback.bind(ball))
 
-	print("[Hole] Ball fell in, respawning in %.1f seconds" % respawn_delay)
-
-func _respawn_ball(ball: RigidBody2D) -> void:
+func _respawn_ball_fallback(ball: RigidBody2D) -> void:
 	if not is_instance_valid(ball):
 		return
 
@@ -80,4 +93,4 @@ func _respawn_ball(ball: RigidBody2D) -> void:
 	ball.global_position = respawn_pos
 	ball.visible = true
 
-	print("[Hole] Ball respawned at %s" % respawn_pos)
+	print("[Hole] Ball respawned (fallback) at %s" % respawn_pos)
