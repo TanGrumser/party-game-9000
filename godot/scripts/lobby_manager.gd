@@ -13,8 +13,11 @@ signal game_started(host_id: String)
 signal game_state_received(state: Dictionary)
 signal ball_shot_received(player_id: String, shot_data: Dictionary)
 
-const SERVER_URL = "http://localhost:3000"
-const WS_URL = "ws://localhost:3000/ws"
+const DEFAULT_SERVER_URL = "http://localhost:3000/api"
+const DEFAULT_WS_URL = "ws://localhost:3000/ws"
+
+var _server_url: String = DEFAULT_SERVER_URL
+var _ws_url: String = DEFAULT_WS_URL
 
 var _http_request: HTTPRequest
 var _socket: WebSocketPeer
@@ -31,6 +34,7 @@ func _ready() -> void:
 	_http_request.request_completed.connect(_on_request_completed)
 
 	_socket = WebSocketPeer.new()
+	_resolve_backend_urls()
 
 func _process(_delta: float) -> void:
 	if _socket.get_ready_state() == WebSocketPeer.STATE_CLOSED:
@@ -56,7 +60,7 @@ func _process(_delta: float) -> void:
 func create_lobby() -> void:
 	print("[LobbyManager] Creating lobby...")
 	var error = _http_request.request(
-		SERVER_URL + "/api/lobby/create",
+		_server_url + "/lobby/create",
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_POST,
 		""
@@ -67,7 +71,7 @@ func create_lobby() -> void:
 func check_lobby(lobby_id: String) -> void:
 	print("[LobbyManager] Checking lobby: %s" % lobby_id)
 	var error = _http_request.request(
-		SERVER_URL + "/api/lobby/" + lobby_id.to_upper(),
+		_server_url + "/lobby/" + lobby_id.to_upper(),
 		[],
 		HTTPClient.METHOD_GET
 	)
@@ -80,7 +84,7 @@ func join_lobby(lobby_id: String, player_name: String) -> void:
 
 	print("[LobbyManager] Joining lobby %s as %s" % [_lobby_id, _player_name])
 
-	var url = "%s?lobby=%s&name=%s" % [WS_URL, _lobby_id, _player_name.uri_encode()]
+	var url = "%s?lobby=%s&name=%s" % [_ws_url, _lobby_id, _player_name.uri_encode()]
 	var error = _socket.connect_to_url(url)
 	if error != OK:
 		connection_error.emit("Failed to connect to WebSocket")
@@ -136,6 +140,42 @@ func get_players() -> Array:
 # ============ INTERNAL ============
 
 var _pending_action: String = ""
+
+func _resolve_backend_urls() -> void:
+	_server_url = DEFAULT_SERVER_URL
+	_ws_url = DEFAULT_WS_URL
+
+	if not OS.has_feature("web"):
+		return
+
+	var origin = JavaScriptBridge.eval("window.location && window.location.origin ? window.location.origin : ''", true)
+	if typeof(origin) != TYPE_STRING or origin == "":
+		return
+
+	# Local development: keep defaults (localhost:3000)
+	if origin.begins_with("file://") or origin.find("localhost") != -1 or origin.find("127.0.0.1") != -1:
+		print("[LobbyManager] Local dev, using defaults: http=%s ws=%s" % [_server_url, _ws_url])
+		return
+
+	# Production: infer from origin (same-origin deployment behind reverse proxy)
+	_server_url = origin + "/api"
+	_ws_url = _derive_ws_url(_server_url)
+	print("[LobbyManager] Production, using origin: http=%s ws=%s" % [_server_url, _ws_url])
+
+func _derive_ws_url(server_url: String) -> String:
+	var base = server_url
+	if base.ends_with("/api"):
+		base = base.substr(0, base.length() - 4)
+
+	if base.begins_with("https://"):
+		base = "wss://" + base.substr(8)
+	elif base.begins_with("http://"):
+		base = "ws://" + base.substr(7)
+
+	if not base.ends_with("/ws"):
+		base = base.rstrip("/") + "/ws"
+
+	return base
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS:
