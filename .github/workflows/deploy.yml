@@ -16,7 +16,7 @@ jobs:
       # ---------- Backend: build image ----------
       - name: Build backend Docker image
         run: |
-          docker build -t party-game ./backend
+          docker build -t party-game .
 
       # ---------- Backend: save + transfer image ----------
       - name: Save and transfer backend image
@@ -61,11 +61,9 @@ jobs:
         with:
           godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_linux.x86_64.zip
           godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz
-          relative_project_path: frontend
+          relative_project_path: godot
           presets_to_export: Web
           archive_output: false
-
-          # Make exports land where your preset says (recommended)
           use_preset_export_path: true
         
       # ---------- Frontend: deploy static files ----------
@@ -76,5 +74,5 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SERVER_SSH_PORT }} -o StrictHostKeyChecking=no" \
-            frontend/build/web/ \
+            godot/build/web/ \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/srv/www/party-game/
