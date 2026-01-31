@@ -1,12 +1,12 @@
-[gd_scene format=3 uid="uid://c8tiledbg2024"]
+[gd_scene format=3 uid="uid://cjwuu40up8f5x"]
 
-[ext_resource type="Texture2D" uid="uid://cth5r6a86jkxk" path="res://sprites/grid.jpg" id="1_grid"]
-[ext_resource type="Script" path="res://scripts/tiled_background.gd" id="2_script"]
+[ext_resource type="Texture2D" uid="uid://0ifi7t53w55x" path="res://sprites/grass_grid.png" id="1_5v30c"]
+[ext_resource type="Script" uid="uid://day8ynmdnale6" path="res://scripts/tiled_background.gd" id="2_script"]
 
-[node name="TiledBackground" type="Sprite2D"]
+[node name="TiledBackground" type="Sprite2D" unique_id=962446044]
 z_index = -100
 texture_repeat = 2
-script = ExtResource("2_script")
-texture = ExtResource("1_grid")
+texture = ExtResource("1_5v30c")
 region_enabled = true
 region_rect = Rect2(0, 0, 5000, 5000)
+script = ExtResource("2_script")
