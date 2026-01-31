@@ -5,6 +5,7 @@ const SPAWN_RADIUS = 150.0  # Distance from main ball to spawn player balls
 
 @onready var ball_scene = preload("res://scenes/player_ball.tscn")
 @onready var main_ball = $MainBall
+@onready var game_camera = $GameCamera
 
 var _balls: Dictionary = {}  # player_id -> RigidBody2D
 var _broadcast_timer: float = 0.0
@@ -41,6 +42,10 @@ func _spawn_debug_ball() -> void:
 	_balls["debug_player"] = ball
 	print("[Game] DEBUG: Spawned test ball at %s" % ball.global_position)
 
+	# Set up camera targets
+	game_camera.add_target(main_ball)
+	game_camera.add_target(ball)
+
 func _spawn_all_player_balls() -> void:
 	var players = LobbyManager.get_players()
 	var my_id = LobbyManager.get_player_id()
@@ -48,12 +53,16 @@ func _spawn_all_player_balls() -> void:
 
 	print("[Game] Spawning balls for %d players" % total_players)
 
+	# Add main ball as camera target
+	game_camera.add_target(main_ball)
+
 	for i in range(total_players):
 		var player = players[i]
 		var player_id = player.get("id", "")
 		var is_local = (player_id == my_id)
 
-		_spawn_ball_at_index(player_id, i, total_players, is_local)
+		var ball = _spawn_ball_at_index(player_id, i, total_players, is_local)
+		game_camera.add_target(ball)
 
 func _spawn_ball_at_index(player_id: String, index: int, total: int, is_local: bool) -> RigidBody2D:
 	var ball = ball_scene.instantiate()
@@ -159,6 +168,7 @@ func _on_player_left(player_id: String, player_name: String) -> void:
 
 	if _balls.has(player_id):
 		var ball = _balls[player_id]
+		game_camera.remove_target(ball)
 		ball.queue_free()
 		_balls.erase(player_id)
 
