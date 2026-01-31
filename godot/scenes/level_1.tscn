@@ -2,10 +2,11 @@
 
 [ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="1_5xbjy"]
 [ext_resource type="PackedScene" uid="uid://cjwuu40up8f5x" path="res://scenes/tiled_background.tscn" id="2_4nkto"]
+[ext_resource type="Texture2D" uid="uid://ccsaq3vo5hl0r" path="res://sprites/sandstone_hrid.png" id="3_15mv3"]
 [ext_resource type="Script" uid="uid://c5ywej7vstdd8" path="res://scripts/game_camera.gd" id="3_fcfvj"]
 [ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="4_pa8r4"]
 [ext_resource type="PackedScene" path="res://scenes/flame_arm.tscn" id="6_fcfvj"]
-[ext_resource type="PackedScene" path="res://scenes/hole.tscn" id="7_pa8r4"]
+[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/hole.tscn" id="7_pa8r4"]
 [ext_resource type="PackedScene" path="res://scenes/wall.tscn" id="8_15mv3"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
@@ -15,7 +16,13 @@ script = ExtResource("1_5xbjy")
 position = Vector2(934, 509)
 region_rect = Rect2(0, 0, 2000, 2000)
 
-[node name="TiledBackground2" parent="." unique_id=962446044 instance=ExtResource("2_4nkto")]
+[node name="SandstoneBackground" parent="." unique_id=962446044 instance=ExtResource("2_4nkto")]
+z_index = -101
+position = Vector2(99, 449)
+texture = ExtResource("3_15mv3")
+region_rect = Rect2(0, 0, 100000, 10000)
+
+[node name="TiledBackground2" parent="." unique_id=911569418 instance=ExtResource("2_4nkto")]
 position = Vector2(-766, 508)
 region_rect = Rect2(0, 0, 1400, 2000)
 

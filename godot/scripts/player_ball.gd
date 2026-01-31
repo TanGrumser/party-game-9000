@@ -10,6 +10,9 @@ extends RigidBody2D
 @export var respawn_delay: float = 2.0  # Seconds before respawn
 
 @onready var burnt_sound: AudioStreamPlayer = $BurntSound
+@onready var clack_sound: AudioStreamPlayer = $ClackSound
+@onready var wall_sound: AudioStreamPlayer = $WallSound
+@onready var shoot_sound: AudioStreamPlayer = $ShootSound
 
 var player_id: String = ""
 var is_local: bool = false:
@@ -143,6 +146,10 @@ func _end_drag(pos: Vector2) -> void:
 	var direction = -drag_offset.normalized()
 	var impulse = direction * max_impulse * strength
 	apply_central_impulse(impulse)
+
+	# Play shoot sound with volume based on strength
+	shoot_sound.volume_db = lerpf(-20.0, -10.0, strength)
+	shoot_sound.play()
 
 	print("[PlayerBall] Drag shot: player_id=%s, impulse=%s (strength: %.2f)" % [player_id, impulse, strength])
 
@@ -326,8 +333,32 @@ func handle_remote_respawn(spawn_pos: Vector2) -> void:
 		collision_layer = _stored_collision_layer
 		collision_mask = _stored_collision_mask
 
+const MIN_SOUND_SPEED: float = 50.0  # Below this, no sound
+const MAX_SOUND_SPEED: float = 500.0  # At this speed, full volume
+
+func _get_collision_volume(speed: float) -> float:
+	if speed < MIN_SOUND_SPEED:
+		return -80.0  # Effectively silent
+	var t = clampf((speed - MIN_SOUND_SPEED) / (MAX_SOUND_SPEED - MIN_SOUND_SPEED), 0.0, 1.0)
+	return lerpf(-20.0, 0.0, t)  # -20 dB at min speed, 0 dB at max speed
+
 func _on_body_entered(body: Node) -> void:
-	# Only local player handles their own collision
+	var speed = linear_velocity.length()
+	if body is RigidBody2D:
+		# Use relative velocity for ball-to-ball collisions
+		speed = (linear_velocity - body.linear_velocity).length()
+
+	var volume = _get_collision_volume(speed)
+
+	# Ball collision sounds play for everyone
+	if body is RigidBody2D:
+		clack_sound.volume_db = volume
+		clack_sound.play()
+	elif body is StaticBody2D and body.name.begins_with("Wall"):
+		wall_sound.volume_db = volume
+		wall_sound.play()
+
+	# Only local player handles their own collision logic
 	if not is_local:
 		return
 

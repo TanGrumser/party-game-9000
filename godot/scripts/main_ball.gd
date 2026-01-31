@@ -3,12 +3,15 @@ extends RigidBody2D
 @export var respawn_delay: float = 2.0  # Seconds before respawn
 
 @onready var burnt_sound: AudioStreamPlayer = $BurntSound
+@onready var clack_sound: AudioStreamPlayer = $ClackSound
+@onready var wall_sound: AudioStreamPlayer = $WallSound
 
 var _spawn_position: Vector2
 
 func _ready() -> void:
 	can_sleep = false  # Never sleep - we need _integrate_forces for network sync
 	_spawn_position = global_position
+	body_entered.connect(_on_body_entered)
 
 # Network interpolation for smooth movement
 var _interpolator: NetworkInterpolator = NetworkInterpolator.new()
@@ -177,7 +180,31 @@ func handle_remote_respawn(spawn_pos: Vector2) -> void:
 		collision_layer = _stored_collision_layer
 		collision_mask = _stored_collision_mask
 
+const MIN_SOUND_SPEED: float = 50.0  # Below this, no sound
+const MAX_SOUND_SPEED: float = 500.0  # At this speed, full volume
+
+func _get_collision_volume(speed: float) -> float:
+	if speed < MIN_SOUND_SPEED:
+		return -80.0  # Effectively silent
+	var t = clampf((speed - MIN_SOUND_SPEED) / (MAX_SOUND_SPEED - MIN_SOUND_SPEED), 0.0, 1.0)
+	return lerpf(-20.0, 0.0, t)  # -20 dB at min speed, 0 dB at max speed
+
 func _on_body_entered(body: Node) -> void:
+	var speed = linear_velocity.length()
+	if body is RigidBody2D:
+		# Use relative velocity for ball-to-ball collisions
+		speed = (linear_velocity - body.linear_velocity).length()
+
+	var volume = _get_collision_volume(speed)
+
+	# Ball collision sounds play for everyone
+	if body is RigidBody2D:
+		clack_sound.volume_db = volume
+		clack_sound.play()
+	elif body is StaticBody2D and body.name.begins_with("Wall"):
+		wall_sound.volume_db = volume
+		wall_sound.play()
+
 	# Only host handles main ball collision (or debug mode with no lobby)
 	if not LobbyManager.is_host() and not LobbyManager.get_lobby_id().is_empty():
 		return
