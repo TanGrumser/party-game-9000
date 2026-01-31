@@ -89,4 +89,4 @@ func _on_connection_error(message: String) -> void:
 	%StatusLabel.text = "Error: %s" % message
 
 func _on_game_started(_host_id: String) -> void:
-	get_tree().change_scene_to_file("res://scenes/game.tscn")
+	get_tree().change_scene_to_file("res://scenes/Game.tscn")

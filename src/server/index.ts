@@ -22,6 +22,22 @@ interface Lobby {
 
 const lobbies = new Map<string, Lobby>();
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders,
+    },
+  });
+}
+
 function generateLobbyCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -194,6 +210,11 @@ const server = serve({
   fetch(req, server) {
     const url = new URL(req.url);
 
+    // Handle CORS preflight
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
     // Create lobby
     if (url.pathname === "/api/lobby/create" && req.method === "POST") {
       const lobbyId = generateLobbyCode();
@@ -204,7 +225,7 @@ const server = serve({
         gameStarted: false,
       });
       console.log(`[SERVER] Created lobby: ${lobbyId}`);
-      return Response.json({ lobbyId });
+      return jsonResponse({ lobbyId });
     }
 
     // Check if lobby exists
@@ -212,9 +233,9 @@ const server = serve({
       const lobbyId = url.pathname.split("/").pop()?.toUpperCase();
       if (lobbyId && lobbies.has(lobbyId)) {
         const lobby = lobbies.get(lobbyId)!;
-        return Response.json({ exists: true, playerCount: lobby.players.size });
+        return jsonResponse({ exists: true, playerCount: lobby.players.size });
       }
-      return Response.json({ exists: false }, { status: 404 });
+      return jsonResponse({ exists: false }, 404);
     }
 
     // WebSocket upgrade
@@ -224,7 +245,7 @@ const server = serve({
 
       if (!lobbyId || !lobbies.has(lobbyId)) {
         console.log(`[WS] Rejected connection - invalid lobby: ${lobbyId}`);
-        return new Response("Invalid lobby", { status: 400 });
+        return new Response("Invalid lobby", { status: 400, headers: corsHeaders });
       }
 
       const playerId = generatePlayerId();
@@ -237,10 +258,10 @@ const server = serve({
         return undefined;
       }
 
-      return new Response("WebSocket upgrade failed", { status: 500 });
+      return new Response("WebSocket upgrade failed", { status: 500, headers: corsHeaders });
     }
 
-    return new Response("Not found", { status: 404 });
+    return new Response("Not found", { status: 404, headers: corsHeaders });
   },
 
   development: process.env.NODE_ENV !== "production" && {
