@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="gamejam26"
-run/main_scene="uid://byxl07l20p8jc"
+run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
 [autoload]
