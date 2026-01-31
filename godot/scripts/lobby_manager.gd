@@ -15,7 +15,8 @@ signal game_started(host_id: String)
 signal returned_to_lobby()
 signal game_state_received(state: Dictionary)
 signal ball_shot_received(player_id: String, shot_data: Dictionary)
-signal ball_respawn_received(player_id: String, spawn_position: Dictionary)
+signal ball_respawn_received(ball_id: String, spawn_position: Dictionary)
+signal ball_death_received(player_id: String, ball_id: String)
 
 const DEFAULT_SERVER_URL = "http://localhost:3000/api"
 const DEFAULT_WS_URL = "ws://localhost:3000/ws"
@@ -116,6 +117,17 @@ func send_ball_respawn(ball_id: String, spawn_pos: Vector2) -> void:
 		"spawnPosition": {"x": spawn_pos.x, "y": spawn_pos.y}
 	}
 	print("[LobbyManager] send_ball_respawn: ball_id=%s, spawn_pos=%s" % [ball_id, spawn_pos])
+	_socket.send_text(JSON.stringify(data))
+
+func send_ball_death(ball_id: String) -> void:
+	if not _connected:
+		print("[LobbyManager] send_ball_death SKIPPED - not connected")
+		return
+	var data = {
+		"type": "ball_death",
+		"ballId": ball_id
+	}
+	print("[LobbyManager] send_ball_death: ball_id=%s" % ball_id)
 	_socket.send_text(JSON.stringify(data))
 
 func send_game_state(balls: Array) -> void:
@@ -314,10 +326,16 @@ func _handle_message(message: String) -> void:
 			ball_shot_received.emit(shot_player_id, data)
 
 		"ball_respawn":
-			var respawn_player_id = data.get("playerId", "")
+			var ball_id = data.get("ballId", "")
 			var spawn_pos = data.get("spawnPosition", {})
-			print("[LobbyManager] ball_respawn received: from player_id=%s, spawn_pos=%s" % [respawn_player_id, spawn_pos])
-			ball_respawn_received.emit(respawn_player_id, spawn_pos)
+			print("[LobbyManager] ball_respawn received: ball_id=%s, spawn_pos=%s" % [ball_id, spawn_pos])
+			ball_respawn_received.emit(ball_id, spawn_pos)
+
+		"ball_death":
+			var death_player_id = data.get("playerId", "")
+			var ball_id = data.get("ballId", "")
+			print("[LobbyManager] ball_death received: from player_id=%s, ball_id=%s" % [death_player_id, ball_id])
+			ball_death_received.emit(death_player_id, ball_id)
 
 		"player_ready_changed":
 			var player_id = data.get("playerId", "")

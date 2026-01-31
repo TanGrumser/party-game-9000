@@ -19,6 +19,7 @@ func _ready() -> void:
 
 	LobbyManager.game_state_received.connect(_on_game_state_received)
 	LobbyManager.ball_shot_received.connect(_on_ball_shot_received)
+	LobbyManager.ball_death_received.connect(_on_ball_death_received)
 	LobbyManager.ball_respawn_received.connect(_on_ball_respawn_received)
 	LobbyManager.player_left.connect(_on_player_left)
 
@@ -179,25 +180,47 @@ func _on_ball_shot_received(player_id: String, shot_data: Dictionary) -> void:
 	ball.apply_central_impulse(impulse)
 	print("[Game] SUCCESS: Applied shot from %s: %s" % [player_id, impulse])
 
-func _on_ball_respawn_received(player_id: String, spawn_pos_data: Dictionary) -> void:
+func _on_ball_death_received(player_id: String, ball_id: String) -> void:
+	print("[Game] ball_death received: player_id=%s, ball_id=%s" % [player_id, ball_id])
+
+	# Handle main ball death
+	if ball_id == "main":
+		# Only non-host handles remote main ball death
+		if not LobbyManager.is_host():
+			main_ball.handle_remote_death()
+		return
+
+	# Handle player ball death
+	var ball = _balls.get(ball_id)
+	if ball == null:
+		print("[Game] Warning: No ball for death player %s" % ball_id)
+		return
+
+	# Don't handle our own death (we triggered it locally)
+	if ball_id == LobbyManager.get_player_id():
+		return
+
+	ball.handle_remote_death()
+
+func _on_ball_respawn_received(ball_id: String, spawn_pos_data: Dictionary) -> void:
 	var spawn_pos = Vector2(spawn_pos_data.get("x", 0), spawn_pos_data.get("y", 0))
-	print("[Game] ball_respawn received: player_id=%s, spawn_pos=%s" % [player_id, spawn_pos])
+	print("[Game] ball_respawn received: ball_id=%s, spawn_pos=%s" % [ball_id, spawn_pos])
 
 	# Handle main ball respawn
-	if player_id == "main":
+	if ball_id == "main":
 		# Only non-host handles remote main ball respawn
 		if not LobbyManager.is_host():
 			main_ball.handle_remote_respawn(spawn_pos)
 		return
 
 	# Handle player ball respawn
-	var ball = _balls.get(player_id)
+	var ball = _balls.get(ball_id)
 	if ball == null:
-		print("[Game] Warning: No ball for respawn player %s" % player_id)
+		print("[Game] Warning: No ball for respawn ball_id %s" % ball_id)
 		return
 
 	# Don't handle our own respawn (we triggered it locally)
-	if player_id == LobbyManager.get_player_id():
+	if ball_id == LobbyManager.get_player_id():
 		return
 
 	ball.handle_remote_respawn(spawn_pos)

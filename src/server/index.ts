@@ -157,6 +157,17 @@ const server = serve({
           }));
         }
 
+        // Ball death message - player's ball died (before respawn delay)
+        // Contains: playerId, ballId
+        if (data.type === "ball_death") {
+          console.log(`[WS] Ball death from ${playerId}`);
+          // Broadcast to all players including sender for confirmation
+          broadcast(lobby, JSON.stringify({
+            ...data,
+            playerId,
+          }));
+        }
+
         // Start game message
         if (data.type === "start_game") {
           if (playerId !== lobby.hostId) {

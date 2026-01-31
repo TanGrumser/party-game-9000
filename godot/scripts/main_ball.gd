@@ -70,9 +70,9 @@ func respawn() -> void:
 	freeze = true
 	global_position = Vector2(-99999, -99999)
 
-	# Send respawn event to network (only host triggers this for main ball)
+	# Send DEATH event immediately (only host triggers this for main ball)
 	if LobbyManager.is_host():
-		LobbyManager.send_ball_respawn("main", _spawn_position)
+		LobbyManager.send_ball_death("main")
 
 	# Create respawn timer
 	var timer = get_tree().create_timer(respawn_delay)
@@ -89,6 +89,10 @@ func _do_respawn() -> void:
 	_respawn_pending = true
 	sleeping = false
 	print("[MainBall] Respawned at %s" % _spawn_position)
+
+	# Send RESPAWN event after timer (only host triggers this for main ball)
+	if LobbyManager.is_host():
+		LobbyManager.send_ball_respawn("main", _spawn_position)
 
 # Apply network sync during physics step (safe way to modify RigidBody2D)
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
@@ -107,6 +111,25 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 
 		state.transform.origin += pos_error * CORRECTION_RATE
 		state.linear_velocity += vel_error * CORRECTION_RATE
+
+func handle_remote_death() -> void:
+	"""Called when host reports the main ball died."""
+	print("[MainBall] Remote death")
+
+	# Clear interpolation buffer to prevent sliding from old position
+	_interpolator.clear()
+
+	# Store collision settings and disable
+	if collision_layer != 0:
+		_stored_collision_layer = collision_layer
+		_stored_collision_mask = collision_mask
+	collision_layer = 0
+	collision_mask = 0
+
+	# Hide and freeze
+	visible = false
+	freeze = true
+	global_position = Vector2(-99999, -99999)
 
 func handle_remote_respawn(spawn_pos: Vector2) -> void:
 	"""Called when host reports the main ball respawned."""

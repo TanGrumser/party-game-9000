@@ -51,8 +51,9 @@ var _sync_position: Vector2
 var _sync_velocity: Vector2
 
 # Correction settings for local player
-const LOCAL_CORRECTION_THRESHOLD: float = 50.0  # Pixels before correcting local player
-const LOCAL_CORRECTION_RATE: float = 0.2  # Gentle correction rate
+const LOCAL_CORRECTION_THRESHOLD: float = 100.0  # Pixels before correcting local player
+const LOCAL_SNAP_THRESHOLD: float = 200.0  # Hard snap for severe divergence
+const LOCAL_CORRECTION_RATE: float = 0.4  # Correction rate (was 0.2)
 const REMOTE_CORRECTION_RATE: float = 0.3  # Correction rate for remote entities
 
 # Respawn state (applied in _integrate_forces)
@@ -175,9 +176,9 @@ func respawn() -> void:
 	freeze = true
 	global_position = Vector2(-99999, -99999)
 
-	# Send respawn event to network (only local player triggers this)
+	# Send DEATH event immediately (only local player triggers this)
 	if is_local:
-		LobbyManager.send_ball_respawn(player_id, spawn_position)
+		LobbyManager.send_ball_death(player_id)
 
 	# Create respawn timer
 	var timer = get_tree().create_timer(respawn_delay)
@@ -195,13 +196,23 @@ func _do_respawn() -> void:
 	sleeping = false
 	print("[PlayerBall] %s respawned at %s" % [player_id, spawn_position])
 
+	# Send RESPAWN event after timer (only local player triggers this)
+	if is_local:
+		LobbyManager.send_ball_respawn(player_id, spawn_position)
+
 # Called by game.gd to sync state from network
 func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
 	if is_local:
-		# Local player: only correct if significantly diverged
+		# Local player: correct if diverged from host
 		var pos_diff = (pos - global_position).length()
-		if pos_diff > LOCAL_CORRECTION_THRESHOLD:
-			# Queue gentle correction
+		if pos_diff > LOCAL_SNAP_THRESHOLD:
+			# Hard snap for severe divergence - teleport immediately
+			_sync_position = pos
+			_sync_velocity = vel
+			_sync_pending = true
+			sleeping = false
+		elif pos_diff > LOCAL_CORRECTION_THRESHOLD:
+			# Gradual correction for moderate divergence
 			_sync_position = global_position.lerp(pos, LOCAL_CORRECTION_RATE)
 			_sync_velocity = linear_velocity.lerp(vel, LOCAL_CORRECTION_RATE)
 			_sync_pending = true
@@ -247,6 +258,25 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 
 			state.transform.origin += pos_error * REMOTE_CORRECTION_RATE
 			state.linear_velocity += vel_error * REMOTE_CORRECTION_RATE
+
+func handle_remote_death() -> void:
+	"""Called when another client reports this ball died."""
+	print("[PlayerBall] %s remote death" % player_id)
+
+	# Clear interpolation buffer to prevent sliding from old position
+	_interpolator.clear()
+
+	# Store collision settings and disable
+	if collision_layer != 0:
+		_stored_collision_layer = collision_layer
+		_stored_collision_mask = collision_mask
+	collision_layer = 0
+	collision_mask = 0
+
+	# Hide and freeze
+	visible = false
+	freeze = true
+	global_position = Vector2(-99999, -99999)
 
 func handle_remote_respawn(spawn_pos: Vector2) -> void:
 	"""Called when another client reports this ball respawned."""
