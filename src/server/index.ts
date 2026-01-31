@@ -2,7 +2,7 @@ import { serve } from "bun";
 import type { ServerWebSocket } from "bun";
 import index from "../client/index.html";
 
-// ============ TYPES ============
+const PLAYER_COLORS = ["#ff6b6b", "#4ecdc4", "#ffe66d", "#95e1d3", "#f38181", "#aa96da"];
 
 interface ClientData {
   lobbyId: string;
@@ -14,6 +14,20 @@ interface Player {
   id: string;
   name: string;
   connected: boolean;
+  color: string;
+  colorIndex: number;
+}
+
+interface Ball {
+  id: string;
+  targetPlayerId: string; // The player this ball should go to (by color match)
+  targetColor: string;
+  holderId: string | null; // Who currently has the ball
+  x: number;
+  y: number;
+  status: "held" | "incoming" | "collected";
+  sentFromId?: string; // Who sent this ball (for returning on timeout)
+  incomingTimestamp?: number; // When the ball arrived (for timeout)
 }
 
 interface InputField {
@@ -46,6 +60,10 @@ interface Lobby {
   players: Map<string, { ws: ServerWebSocket<ClientData>; player: Player }>;
   createdAt: number;
   gameState: GameState | null;
+  gameStarted: boolean;
+  stage: number; // 1 = code game only, 2 = ball game
+  balls: Ball[];
+  collectedBalls: Map<string, number>; // playerId -> count of collected balls
 }
 
 // ============ CONSTANTS ============
@@ -74,6 +92,7 @@ const MIN_PLAYERS = 2;
 // ============ STATE ============
 
 const lobbies = new Map<string, Lobby>();
+const INCOMING_TIMEOUT = 5000; // 5 seconds to accept a ball
 
 // ============ HELPER FUNCTIONS ============
 
@@ -109,6 +128,10 @@ function shuffleArray<T>(array: T[]): T[] {
     [result[i], result[j]] = [result[j]!, result[i]!];
   }
   return result;
+}
+
+function generateBallId(): string {
+  return "ball-" + Math.random().toString(36).substring(2, 8);
 }
 
 function broadcast(lobby: Lobby, message: string) {
@@ -252,9 +275,33 @@ function getVisibleCodesForPlayer(gameState: GameState, playerId: string) {
       }
     }
   }
-
   return visibleCodes;
 }
+
+function createGameBalls(lobby: Lobby): Ball[] {
+  const players = Array.from(lobby.players.values()).map(p => p.player);
+  const balls: Ball[] = [];
+
+  // Each player gets balls of OTHER players' colors
+  for (const holder of players) {
+    for (const target of players) {
+      if (holder.id !== target.id) {
+        balls.push({
+          id: generateBallId(),
+          targetPlayerId: target.id,
+          targetColor: target.color,
+          holderId: holder.id,
+          x: 0.2 + Math.random() * 0.6, // Random x position
+          y: 0.3 + Math.random() * 0.4, // Random y position
+          status: "held",
+        });
+      }
+    }
+  }
+  return balls;
+}
+
+
 
 function getPlayerInputsState(gameState: GameState, playerId: string) {
   const playerState = gameState.playerStates.get(playerId);
@@ -281,8 +328,35 @@ function refreshExpiredCodes(gameState: GameState): boolean {
       }
     }
   }
-
   return anyRefreshed;
+}
+        
+
+function checkIncomingTimeouts(lobby: Lobby) {
+  const now = Date.now();
+  let changed = false;
+
+  for (const ball of lobby.balls) {
+    if (ball.status === "incoming" && ball.incomingTimestamp && ball.sentFromId) {
+      if (now - ball.incomingTimestamp > INCOMING_TIMEOUT) {
+        // Return ball to sender
+        ball.status = "held";
+        ball.holderId = ball.sentFromId;
+        ball.x = 0.5;
+        ball.y = 0.5;
+        ball.sentFromId = undefined;
+        ball.incomingTimestamp = undefined;
+        changed = true;
+        console.log(`[SERVER] Ball ${ball.id} timed out, returning to sender`);
+      }
+    }
+  }
+  if (changed) {
+    broadcast(lobby, JSON.stringify({
+      type: "balls_update",
+      balls: lobby.balls,
+    }));
+  }
 }
 
 function checkGameOver(gameState: GameState): { gameOver: boolean; loser?: { playerName: string; emoji: string } } {
@@ -465,6 +539,10 @@ const server = serve({
           players: new Map(),
           createdAt: Date.now(),
           gameState: null,
+          gameStarted: false,
+          stage: 1, // Start with level 1 (code game only)
+          balls: [],
+          collectedBalls: new Map(),
         });
         console.log(`[SERVER] Created lobby: ${lobbyId}`);
         return Response.json({ lobbyId });
@@ -493,7 +571,15 @@ const server = serve({
       const lobby = lobbies.get(lobbyId);
       if (!lobby) return;
 
-      const player: Player = { id: playerId, name: playerName, connected: true };
+      // Assign color based on join order
+      const colorIndex = lobby.players.size % PLAYER_COLORS.length;
+      const player: Player = {
+        id: playerId,
+        name: playerName,
+        connected: true,
+        color: PLAYER_COLORS[colorIndex] ?? "#646cff",
+        colorIndex,
+      };
       lobby.players.set(playerId, { ws, player });
 
       // Broadcast player joined to all
@@ -518,16 +604,29 @@ const server = serve({
           gameStarted: lobby.gameState !== null,
         })
       );
+
+      ws.send(JSON.stringify({
+        type: "welcome",
+        playerId,
+        playerName,
+        lobbyId,
+        players: getPlayerList(lobby),
+        gameStarted: lobby.gameStarted,
+        stage: lobby.stage,
+        // Ball game data only sent for stage 2
+        ...(lobby.stage >= 2 ? {
+          balls: lobby.balls,
+          collectedBalls: Object.fromEntries(lobby.collectedBalls),
+        } : {}),
+      }));
     },
 
     message(ws: ServerWebSocket<ClientData>, message: string | Buffer) {
       const { lobbyId, playerId, playerName } = ws.data;
       const messageStr = typeof message === "string" ? message : message.toString();
-      console.log(`[WS] Message from "${playerName}" in ${lobbyId}: ${messageStr}`);
 
       try {
         const data = JSON.parse(messageStr);
-
         const lobby = lobbies.get(lobbyId);
         if (!lobby) return;
 
@@ -571,6 +670,155 @@ const server = serve({
               message: result.message,
             })
           );
+        }
+
+
+        // Ball game logic - only for stage 2
+        if (data.type === "start_game" && lobby.stage >= 2) {
+          if (!lobby.gameStarted && lobby.players.size >= 2) {
+            lobby.gameStarted = true;
+            lobby.balls = createGameBalls(lobby);
+            lobby.collectedBalls = new Map();
+
+            // Initialize collected balls count for each player
+            for (const pid of lobby.players.keys()) {
+              lobby.collectedBalls.set(pid, 0);
+            }
+
+            console.log(`[SERVER] Game started in lobby ${lobbyId} with ${lobby.balls.length} balls`);
+            broadcast(lobby, JSON.stringify({
+              type: "game_started",
+              balls: lobby.balls,
+              collectedBalls: Object.fromEntries(lobby.collectedBalls),
+              timestamp: Date.now(),
+            }));
+
+            // Start timeout checker
+            const intervalId = setInterval(() => {
+              const l = lobbies.get(lobbyId);
+              if (!l || !l.gameStarted) {
+                clearInterval(intervalId);
+                return;
+              }
+              checkIncomingTimeouts(l);
+            }, 1000);
+          }
+        }
+
+        // ============ BALL GAME HANDLERS (Stage 2 only) ============
+        if (lobby.stage >= 2) {
+          // Ball position update from holder
+          if (data.type === "ball_update") {
+            const ball = lobby.balls.find(b => b.id === data.ballId);
+            if (ball && ball.holderId === playerId && ball.status === "held") {
+              ball.x = data.x;
+              ball.y = data.y;
+
+              // When ball is near the top edge, show preview to target player
+              if (data.y < 0.2) {
+                // Send preview to the target player - ball appears at their top
+                const targetPlayer = lobby.players.get(ball.targetPlayerId);
+                if (targetPlayer) {
+                  // Mirror the y position: as ball goes from 0.2 to -0.1 on sender,
+                  // it appears from -0.1 to 0.3 on receiver
+                  const previewY = -data.y + 0.1;
+                  targetPlayer.ws.send(JSON.stringify({
+                    type: "ball_preview",
+                    ballId: ball.id,
+                    targetColor: ball.targetColor,
+                    x: data.x,
+                    y: previewY,
+                    fromPlayerId: playerId,
+                  }));
+                }
+              } else {
+                // Ball moved away from edge, cancel preview
+                const targetPlayer = lobby.players.get(ball.targetPlayerId);
+                if (targetPlayer) {
+                  targetPlayer.ws.send(JSON.stringify({
+                    type: "ball_preview_cancel",
+                    ballId: ball.id,
+                  }));
+                }
+              }
+            }
+          }
+
+          // // Ball released over edge - send to target player
+          // if (data.type === "ball_release") {
+          //   const ball = lobby.balls.find(b => b.id === data.ballId);
+          //   if (ball && ball.holderId === playerId && ball.status === "held") {
+          //     // Send to the target player (the one whose color matches)
+          //     ball.status = "incoming";
+          //     ball.sentFromId = playerId;
+          //     ball.holderId = ball.targetPlayerId;
+          //     ball.x = 0.5;
+          //     ball.y = 0.5;
+          //     ball.incomingTimestamp = Date.now();
+
+          //     console.log(`[SERVER] Ball ${ball.id} sent from ${playerId} to ${ball.targetPlayerId}`);
+          //     broadcast(lobby, JSON.stringify({
+          //       type: "ball_incoming",
+          //       ball,
+          //       fromPlayerId: playerId,
+          //     }));
+          //   }
+          // }
+
+          // Player grabs a preview ball (takes ownership while it's being sent)
+          if (data.type === "ball_grab_preview") {
+            const ball = lobby.balls.find(b => b.id === data.ballId);
+            // Only allow if this player is the target and ball is still held by sender
+            if (ball && ball.targetPlayerId === playerId && ball.status === "held") {
+              const previousHolder = ball.holderId;
+              ball.status = "incoming";
+              ball.sentFromId = previousHolder ?? undefined;
+              ball.holderId = playerId;
+              ball.x = data.x;
+              ball.y = data.y;
+              ball.incomingTimestamp = Date.now();
+
+              console.log(`[SERVER] Ball ${ball.id} grabbed by target ${playerId} from preview`);
+              broadcast(lobby, JSON.stringify({
+                type: "ball_grabbed_from_preview",
+                ball,
+                fromPlayerId: previousHolder,
+                toPlayerId: playerId,
+              }));
+            }
+          }
+
+          // Player accepts incoming ball (moves it to ball house)
+          if (data.type === "ball_collect") {
+            const ball = lobby.balls.find(b => b.id === data.ballId);
+            if (ball && ball.holderId === playerId && ball.status === "incoming") {
+              ball.status = "collected";
+              ball.holderId = null;
+              ball.sentFromId = undefined;
+              ball.incomingTimestamp = undefined;
+
+              // Increment collected count
+              const count = lobby.collectedBalls.get(playerId) || 0;
+              lobby.collectedBalls.set(playerId, count + 1);
+
+              console.log(`[SERVER] Ball ${ball.id} collected by ${playerId}. Total: ${count + 1}`);
+              broadcast(lobby, JSON.stringify({
+                type: "ball_collected",
+                ballId: ball.id,
+                playerId,
+                collectedBalls: Object.fromEntries(lobby.collectedBalls),
+              }));
+
+              // Check win condition - all balls collected
+              const activeBalls = lobby.balls.filter(b => b.status !== "collected");
+              if (activeBalls.length === 0) {
+                broadcast(lobby, JSON.stringify({
+                  type: "game_won",
+                  collectedBalls: Object.fromEntries(lobby.collectedBalls),
+                }));
+              }
+            }
+          }
         }
       } catch (e) {
         console.error(`[WS] Error parsing message: ${e}`);

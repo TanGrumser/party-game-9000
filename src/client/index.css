@@ -295,6 +295,54 @@ h1 {
   margin-top: 1rem;
 }
 
+.min-players-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.player-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Players Legend (in-game) */
+.players-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  justify-content: center;
+}
+
+.player-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.player-legend-item .you {
+  font-weight: 600;
+}
+
+.player-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.collected-count {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+}
+
 /* Game Container */
 .game-container {
   flex: 1;
@@ -312,9 +360,65 @@ h1 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   padding: 2rem;
+  padding-bottom: 4rem;
   text-align: center;
+  position: relative;
+  overflow: visible;
+}
+
+.ball-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  margin: 0;
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* Game Instructions */
+.game-instructions {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.game-instructions p {
+  margin: 0.25rem 0;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Ball House */
+.ball-house {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(to top, rgba(100, 255, 100, 0.15), transparent);
+  border-top: 2px dashed rgba(100, 255, 100, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.5rem;
+  pointer-events: none;
+}
+
+.ball-house span {
+  font-size: 0.75rem;
+  color: rgba(100, 255, 100, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 /* Floating Chat Bubbles */
