@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://tovmq6lt6oco"]
+
+[ext_resource type="Texture2D" uid="uid://bn8qakhwv5eu0" path="res://scenes/circle.png" id="1_5he5g"]
+[ext_resource type="Script" path="res://scripts/drag_indicator.gd" id="2_script"]
+
+[node name="DragIndicator" type="Node2D" unique_id=1071580155]
+script = ExtResource("2_script")
+
+[node name="Circle_1" type="Sprite2D" parent="." unique_id=2086674073]
+modulate = Color(1, 1, 1, 0.49803922)
+scale = Vector2(0.1999988, 0.1999988)
+texture = ExtResource("1_5he5g")
+
+[node name="Circle_2" type="Sprite2D" parent="." unique_id=39816560]
+modulate = Color(1, 1, 1, 0.49803922)
+scale = Vector2(0.16, 0.16)
+texture = ExtResource("1_5he5g")
+
+[node name="Circle_3" type="Sprite2D" parent="." unique_id=1818146371]
+modulate = Color(1, 1, 1, 0.49803922)
+scale = Vector2(0.12, 0.12)
+texture = ExtResource("1_5he5g")
+
+[node name="Circle_4" type="Sprite2D" parent="." unique_id=1596999652]
+modulate = Color(1, 1, 1, 0.49803922)
+scale = Vector2(0.08, 0.08)
+texture = ExtResource("1_5he5g")
+
+[node name="Circle_5" type="Sprite2D" parent="." unique_id=246609205]
+modulate = Color(1, 1, 1, 0.49803922)
+scale = Vector2(0.04, 0.040122006)
+texture = ExtResource("1_5he5g")

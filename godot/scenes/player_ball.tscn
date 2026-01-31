@@ -3,17 +3,23 @@
 [ext_resource type="Texture2D" uid="uid://c10xcncbtx813" path="res://sprites/circle.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://lkxtor2rny0o" path="res://scripts/player_ball.gd" id="2_script"]
 
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_vctqk"]
+bounce = 1.0
+
 [sub_resource type="CircleShape2D" id="CircleShape2D_ball"]
 
-[node name="PlayerBall" type="RigidBody2D"]
+[node name="PlayerBall" type="RigidBody2D" unique_id=348921724]
+physics_material_override = SubResource("PhysicsMaterial_vctqk")
 gravity_scale = 0.0
 linear_damp = 1.0
 script = ExtResource("2_script")
+max_impulse = 2500.0
+max_drag = 800.0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1339505015]
 scale = Vector2(7.98, 7.98)
 shape = SubResource("CircleShape2D_ball")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=348457451]
 scale = Vector2(0.22380953, 0.22380945)
 texture = ExtResource("1_sprite")

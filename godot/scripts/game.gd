@@ -19,13 +19,27 @@ func _ready() -> void:
 	LobbyManager.ball_shot_received.connect(_on_ball_shot_received)
 	LobbyManager.player_left.connect(_on_player_left)
 
-	%LobbyLabel.text = "Lobby: %s | %s" % [
-		LobbyManager.get_lobby_id(),
-		"HOST" if LobbyManager.is_host() else "PLAYER"
-	]
+	# Check if we have a lobby connection, otherwise spawn debug ball
+	if LobbyManager.get_lobby_id().is_empty():
+		print("[Game] DEBUG MODE - No lobby connection, spawning test ball")
+		%LobbyLabel.text = "DEBUG MODE"
+		_spawn_debug_ball()
+	else:
+		%LobbyLabel.text = "Lobby: %s | %s" % [
+			LobbyManager.get_lobby_id(),
+			"HOST" if LobbyManager.is_host() else "PLAYER"
+		]
+		# Spawn balls for all players in the lobby
+		_spawn_all_player_balls()
 
-	# Spawn balls for all players in the lobby
-	_spawn_all_player_balls()
+func _spawn_debug_ball() -> void:
+	var ball = ball_scene.instantiate()
+	ball.player_id = "debug_player"
+	ball.is_local = true
+	ball.global_position = main_ball.global_position + Vector2(SPAWN_RADIUS, 0)
+	add_child(ball)
+	_balls["debug_player"] = ball
+	print("[Game] DEBUG: Spawned test ball at %s" % ball.global_position)
 
 func _spawn_all_player_balls() -> void:
 	var players = LobbyManager.get_players()
