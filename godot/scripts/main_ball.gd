@@ -3,6 +3,7 @@ extends RigidBody2D
 # Main ball with PURE SERVER AUTHORITY
 # - Server runs physics, clients use interpolation
 # - No client-side physics on clients
+# - LOCAL MODE: When no lobby, physics runs locally for debug/testing
 
 @export var respawn_delay: float = 2.0
 
@@ -55,6 +56,10 @@ func _detect_server_mode() -> bool:
 			return true
 	return false
 
+func is_local_mode() -> bool:
+	"""Returns true when running in local debug mode (no server connection)."""
+	return LobbyManager.get_lobby_id().is_empty()
+
 # ============================================================================
 # NETWORK SYNC (pure interpolation from server)
 # ============================================================================
@@ -100,9 +105,10 @@ func respawn() -> void:
 
 	_interpolator.clear()
 
-	# Store collision settings and disable
-	_stored_collision_layer = collision_layer
-	_stored_collision_mask = collision_mask
+	# Store collision settings and disable (guard against storing zeroed values)
+	if collision_layer != 0:
+		_stored_collision_layer = collision_layer
+		_stored_collision_mask = collision_mask
 	collision_layer = 0
 	collision_mask = 0
 
@@ -110,30 +116,42 @@ func respawn() -> void:
 	visible = false
 	global_position = Vector2(-99999, -99999)
 
-	# Send DEATH event
-	LobbyManager.send_ball_death("main")
+	# Send DEATH event (skip in local mode)
+	if not is_local_mode():
+		LobbyManager.send_ball_death("main")
 
 	# Create respawn timer
 	var timer = get_tree().create_timer(respawn_delay)
 	timer.timeout.connect(_do_respawn)
 
 func _do_respawn() -> void:
-	# Restore collision
-	collision_layer = _stored_collision_layer
-	collision_mask = _stored_collision_mask
+	# Restore collision (use stored values, fallback to defaults if zero)
+	if _stored_collision_layer != 0:
+		collision_layer = _stored_collision_layer
+		collision_mask = _stored_collision_mask
+	else:
+		# Fallback to default collision settings
+		collision_layer = 1
+		collision_mask = 1
 
 	# Set position directly
 	global_position = _spawn_position
 	_visual_position = _spawn_position
 	visible = true
 
+	# Reset velocity in local mode
+	if is_local_mode():
+		linear_velocity = Vector2.ZERO
+		angular_velocity = 0.0
+
 	# Clear interpolation for clean start
 	_interpolator.clear()
 
-	print("[MainBall] Respawned at %s" % _spawn_position)
+	print("[MainBall] Respawned at %s (collision_layer=%d)" % [_spawn_position, collision_layer])
 
-	# Send RESPAWN event
-	LobbyManager.send_ball_respawn("main", _spawn_position)
+	# Send RESPAWN event (skip in local mode)
+	if not is_local_mode():
+		LobbyManager.send_ball_respawn("main", _spawn_position)
 
 func handle_remote_death() -> void:
 	"""Called when server reports this ball died."""

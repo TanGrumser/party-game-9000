@@ -217,9 +217,17 @@ func _spawn_debug_ball() -> void:
 	ball.global_position = spawn_pos
 	ball.set_spawn_position(spawn_pos)
 
+	# LOCAL MODE: Enable physics for debug play
+	ball.freeze = false
+	ball.can_sleep = false
+
 	add_child(ball)
 	_balls["debug_player"] = ball
-	print("[Game] DEBUG: Spawned test ball at %s" % ball.global_position)
+	print("[Game] DEBUG: Spawned test ball at %s (physics enabled)" % ball.global_position)
+
+	# Ensure main ball also has physics in local mode
+	main_ball.freeze = false
+	main_ball.can_sleep = false
 
 	# Set up camera targets
 	game_camera.add_target(main_ball)
