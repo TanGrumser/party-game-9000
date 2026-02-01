@@ -2,8 +2,10 @@ class_name NetworkInterpolator
 extends RefCounted
 
 # Configuration
-const BUFFER_SIZE: int = 20  # ~2 seconds at 100ms intervals
-const INTERPOLATION_DELAY_MS: float = 100.0  # Render 100ms behind latest state
+# Industry standard: interpolation delay = 2x server tick rate for jitter tolerance
+# Server ticks at 50ms, so we render 100ms behind for smooth interpolation
+const BUFFER_SIZE: int = 60  # ~3 seconds at 50ms intervals
+const INTERPOLATION_DELAY_MS: float = 100.0  # Render 100ms behind (2x tick rate)
 const MAX_EXTRAPOLATION_MS: float = 200.0  # Max time to extrapolate
 const TIME_OFFSET_SAMPLES: int = 10  # Samples for smoothing time offset
 

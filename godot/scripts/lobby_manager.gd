@@ -169,15 +169,11 @@ func send_ball_death(ball_id: String) -> void:
 	print("[LobbyManager] send_ball_death: ball_id=%s" % ball_id)
 	_socket.send_text(JSON.stringify(data))
 
-func send_game_state(balls: Array) -> void:
-	if not _connected or not _is_host:
-		return
-	var data = {
-		"type": "game_state",
-		"balls": balls,
-		"timestamp": Time.get_ticks_msec()
-	}
-	_socket.send_text(JSON.stringify(data))
+func send_game_state(_balls: Array) -> void:
+	# NOTE: With dedicated server architecture, clients no longer send game state.
+	# Game state is sent by the dedicated Godot server via ServerNetwork.
+	# This function is kept for backwards compatibility but does nothing.
+	pass
 
 func start_game() -> void:
 	if not _connected or not _is_host:
@@ -215,6 +211,9 @@ func get_player_name() -> String:
 	return _player_name
 
 func is_host() -> bool:
+	# NOTE: With dedicated server architecture, is_host only affects UI
+	# (who can start game, return to lobby, etc). It no longer means
+	# physics authority - the dedicated server handles all physics.
 	return _is_host
 
 func is_lobby_connected() -> bool:
