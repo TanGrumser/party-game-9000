@@ -152,7 +152,7 @@ position = Vector2(-1767, 1070)
 rotation = 1.5707964
 
 [node name="Goal" parent="." unique_id=230480563 instance=ExtResource("9_e3sih")]
-position = Vector2(2473, 879)
+position = Vector2(620, -130)
 
 [connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]
 [connection signal="body_entered" from="Goal" to="MainBall" method="_on_goal_body_entered"]

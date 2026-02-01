@@ -242,7 +242,7 @@ func _broadcast_game_state() -> void:
 			"velocity": {"x": ball.linear_velocity.x, "y": ball.linear_velocity.y},
 		})
 
-	ServerNetwork.send_game_state(balls_data)
+	ServerNetwork.send_game_state(balls_data, _level_completed)
 
 # ============================================================================
 # CLIENT MODE - Receive and interpolate
@@ -320,6 +320,13 @@ func _on_game_state_received(state: Dictionary) -> void:
 
 	var timestamp = state.get("timestamp", 0)
 	var balls_data = state.get("balls", [])
+	var level_completed = state.get("levelCompleted", false)
+
+	# Check if level just completed (show overlay if not already showing)
+	if level_completed and not _level_completed:
+		print("[Game] Level completed (from game_state)")
+		_level_completed = true
+		_show_level_complete_overlay()
 
 	for ball_data in balls_data:
 		var player_id = ball_data.get("playerId", "")

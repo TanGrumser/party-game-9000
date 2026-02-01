@@ -130,7 +130,7 @@ func _handle_message(message: String) -> void:
 			print("[ServerNetwork] Level started: %s with %d players" % [next_level, players.size()])
 			level_started.emit(next_level, players)
 
-func send_game_state(balls: Array) -> void:
+func send_game_state(balls: Array, level_completed: bool = false) -> void:
 	"""Broadcast game state to all clients."""
 	if not _connected:
 		return
@@ -138,7 +138,8 @@ func send_game_state(balls: Array) -> void:
 	var data = {
 		"type": "game_state",
 		"balls": balls,
-		"timestamp": Time.get_ticks_msec()
+		"timestamp": Time.get_ticks_msec(),
+		"levelCompleted": level_completed
 	}
 	_socket.send_text(JSON.stringify(data))
 
