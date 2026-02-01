@@ -16,7 +16,11 @@ script = ExtResource("1_5xbjy")
 position = Vector2(934, 509)
 region_rect = Rect2(0, 0, 2000, 2000)
 
-[node name="SandstoneBackground" parent="." unique_id=962446044 instance=ExtResource("2_4nkto")]
+[node name="TiledBackground3" parent="." unique_id=962446044 instance=ExtResource("2_4nkto")]
+position = Vector2(2528, 867)
+region_rect = Rect2(0, 0, 1200, 1200)
+
+[node name="SandstoneBackground" parent="." unique_id=1446989789 instance=ExtResource("2_4nkto")]
 z_index = -101
 position = Vector2(99, 449)
 texture = ExtResource("3_15mv3")
@@ -63,17 +67,23 @@ layout_mode = 2
 text = "Back to Lobby"
 
 [node name="FlameArm" parent="." unique_id=342646634 instance=ExtResource("6_fcfvj")]
-position = Vector2(-961, 266)
+position = Vector2(-459.99988, 297.00003)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="FlameArm2" parent="." unique_id=2104538855 instance=ExtResource("6_fcfvj")]
+position = Vector2(-1469.0001, 1038.0001)
+rotation = 6.2761865
 scale = Vector2(1, 1.05257)
 
 [node name="Hole" parent="." unique_id=167934659 instance=ExtResource("7_pa8r4")]
-position = Vector2(59, 777)
+position = Vector2(36.000004, 1108)
 
 [node name="Hole2" parent="." unique_id=780515745 instance=ExtResource("7_pa8r4")]
-position = Vector2(518, 626)
+position = Vector2(883, 626)
 
 [node name="Hole3" parent="." unique_id=148495525 instance=ExtResource("7_pa8r4")]
-position = Vector2(875, 856)
+position = Vector2(1558, 1132)
 
 [node name="Wall2" parent="." unique_id=1477277012 instance=ExtResource("8_15mv3")]
 position = Vector2(-895, -504)
@@ -101,15 +111,28 @@ position = Vector2(1421, 281)
 scale = Vector2(1.2799988, 1)
 
 [node name="Wall8" parent="." unique_id=1970369120 instance=ExtResource("8_15mv3")]
-position = Vector2(203, 1123)
+position = Vector2(130, 1459)
 scale = Vector2(1.2799988, 1)
 
 [node name="Wall9" parent="." unique_id=1573905047 instance=ExtResource("8_15mv3")]
-position = Vector2(1338, 1220)
+position = Vector2(1322, 1463)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall14" parent="." unique_id=72044891 instance=ExtResource("8_15mv3")]
+position = Vector2(2511, 1460)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall15" parent="." unique_id=518095686 instance=ExtResource("8_15mv3")]
+position = Vector2(2644, 297)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall16" parent="." unique_id=1019320990 instance=ExtResource("8_15mv3")]
+position = Vector2(3169, 939)
+rotation = 1.5707964
 scale = Vector2(1.2799988, 1)
 
 [node name="Wall6" parent="." unique_id=194160351 instance=ExtResource("8_15mv3")]
-position = Vector2(-895.00006, 975)
+position = Vector2(-1028, 1463)
 scale = Vector2(1.2799988, 1)
 
 [node name="Wall4" parent="." unique_id=124754172 instance=ExtResource("8_15mv3")]
@@ -118,11 +141,12 @@ rotation = 1.5707964
 scale = Vector2(0.8400012, 1)
 
 [node name="Wall3" parent="." unique_id=1574774705 instance=ExtResource("8_15mv3")]
-position = Vector2(-1415, 26)
+position = Vector2(-1544, 459)
 rotation = 1.5707964
+scale = Vector2(2.2399986, 1)
 
 [node name="Wall5" parent="." unique_id=1862915899 instance=ExtResource("8_15mv3")]
-position = Vector2(-1412, 587)
+position = Vector2(-1767, 1070)
 rotation = 1.5707964
 
 [connection signal="body_entered" from="MainBall" to="MainBall" method="_on_body_entered"]
