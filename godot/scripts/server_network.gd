@@ -11,6 +11,7 @@ signal ball_shot_received(player_id: String, direction: Vector2, power: float)
 signal ball_death_received(player_id: String, ball_id: String)
 signal ball_respawn_received(ball_id: String, spawn_pos: Vector2)
 signal game_started(lobby_id: String, players: Array)
+signal level_started(next_level: String, players: Array)
 
 const DEFAULT_WS_URL = "ws://localhost:3000/ws"
 
@@ -123,6 +124,12 @@ func _handle_message(message: String) -> void:
 			print("[ServerNetwork] Ball respawn: %s at %s" % [ball_id, spawn_pos])
 			ball_respawn_received.emit(ball_id, spawn_pos)
 
+		"level_started":
+			var next_level = data.get("nextLevel", "")
+			var players = data.get("players", [])
+			print("[ServerNetwork] Level started: %s with %d players" % [next_level, players.size()])
+			level_started.emit(next_level, players)
+
 func send_game_state(balls: Array) -> void:
 	"""Broadcast game state to all clients."""
 	if not _connected:
@@ -155,6 +162,16 @@ func send_ball_respawn(ball_id: String, spawn_pos: Vector2) -> void:
 		"playerId": "__SERVER__"
 	}
 	_socket.send_text(JSON.stringify(data))
+
+func send_goal_reached() -> void:
+	if not _connected:
+		return
+	var data = {
+		"type": "goal_reached",
+		"playerId": "__SERVER__"
+	}
+	_socket.send_text(JSON.stringify(data))
+	print("[ServerNetwork] send_goal_reached")
 
 func get_players() -> Array:
 	return _players

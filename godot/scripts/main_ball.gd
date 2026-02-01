@@ -219,6 +219,7 @@ func _on_body_entered(body: Node) -> void:
 			respawn()
 	
 func _on_goal_body_entered(_body: Node2D) -> void:
+	print("[MainBall] Goal hit!")
 	var game = get_parent()
 	if game.has_method("on_goal_hit"):
 		game.on_goal_hit()

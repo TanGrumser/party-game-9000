@@ -66,13 +66,20 @@ func _setup_server_mode() -> void:
 	ServerNetwork.ball_shot_received.connect(_on_server_ball_shot)
 	ServerNetwork.ball_death_received.connect(_on_server_ball_death)
 	ServerNetwork.ball_respawn_received.connect(_on_server_ball_respawn)
+	ServerNetwork.level_started.connect(_on_server_level_started)
 
 	# Server runs physics - unfreeze main ball
 	main_ball.freeze = false
 
-	# Connect to Bun server
-	ServerNetwork.connect_to_relay()
-	print("[Game] Server connecting to relay...")
+	# Check if already connected (level transition case)
+	if ServerNetwork.is_relay_connected():
+		print("[Game] Server already connected, spawning balls for existing players")
+		_server_players = ServerNetwork.get_players()
+		_spawn_server_balls()
+	else:
+		# Connect to Bun server
+		ServerNetwork.connect_to_relay()
+		print("[Game] Server connecting to relay...")
 
 func _setup_client_mode() -> void:
 	print("[Game] Scene loaded (CLIENT MODE - dedicated server handles physics)")
@@ -177,6 +184,18 @@ func _on_server_ball_respawn(ball_id: String, spawn_pos: Vector2) -> void:
 	print("[Game:Server] Ball respawn: %s at %s" % [ball_id, spawn_pos])
 	# Respawn is handled by the ball's respawn() method
 
+func _on_server_level_started(next_level: String, players: Array) -> void:
+	print("[Game:Server] Level started: %s with %d players" % [next_level, players.size()])
+	_server_players = players
+
+	# Load the new level
+	if next_level.is_empty():
+		print("[Game:Server] No next level specified, staying on current level")
+		return
+
+	print("[Game:Server] Loading next level: %s" % next_level)
+	get_tree().change_scene_to_file(next_level)
+
 func _process(delta: float) -> void:
 	if not _is_server:
 		return  # Client doesn't broadcast
@@ -185,6 +204,21 @@ func _process(delta: float) -> void:
 	if _broadcast_timer >= BROADCAST_INTERVAL:
 		_broadcast_timer = 0.0
 		_broadcast_game_state()
+
+func _physics_process(_delta: float) -> void:
+	if not _is_server:
+		return
+
+	# Server-side goal detection (Area2D signals may not work in headless mode)
+	if _level_completed:
+		return
+
+	var goal = get_node_or_null("Goal")
+	if goal and main_ball and main_ball.visible:
+		var overlapping = goal.get_overlapping_bodies()
+		if main_ball in overlapping:
+			print("[Game:Server] Goal collision detected via physics check")
+			on_goal_hit()
 
 func _broadcast_game_state() -> void:
 	var balls_data: Array = []
@@ -384,11 +418,14 @@ func on_goal_hit() -> void:
 	print("[Game] Goal hit!")
 	_level_completed = true
 
-	if LobbyManager.get_lobby_id().is_empty():
+	if _is_server:
+		# Server mode - broadcast to all clients
+		ServerNetwork.send_goal_reached()
+	elif LobbyManager.get_lobby_id().is_empty():
 		# Local mode - show overlay directly
 		_show_level_complete_overlay()
 	else:
-		# Network mode - send goal reached to server
+		# Client mode - send goal reached to server
 		LobbyManager.send_goal_reached()
 
 func _on_goal_reached() -> void:
