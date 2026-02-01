@@ -11,7 +11,7 @@ interface GameServer {
 const gameServers = new Map<string, GameServer>();
 
 // Path to Godot executable (configurable via env)
-const GODOT_PATH = process.env.GODOT_PATH || "godot";
+const GODOT_PATH = "/usr/local/bin/godot";
 const PROJECT_PATH = join(import.meta.dir, "../../godot");
 
 // Level scene to load (can be made dynamic later)

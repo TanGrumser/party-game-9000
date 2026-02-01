@@ -35,6 +35,8 @@ COPY . .
 ENV NODE_ENV=production
 ENV PORT=3000
 
+ENV PATH="/usr/local/bin:/usr/bin:/bin"
+
 EXPOSE 3000
 
 USER bun
