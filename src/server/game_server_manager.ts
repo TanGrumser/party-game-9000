@@ -1,9 +1,25 @@
 import { spawn, type Subprocess } from "bun";
-import { join } from "path";
+import { join, dirname } from "path";
 
-// Path configuration
-const GODOT_PATH = "/usr/local/bin/godot";
-const PROJECT_PATH = "/app/godot";
+const IS_PRODUCTION = process.platform === "linux";
+
+// Path configuration - auto-detect based on environment
+function getGodotPath(): string {
+  if (process.env.GODOT_PATH) return process.env.GODOT_PATH;
+  if (IS_PRODUCTION) return "/usr/local/bin/godot";
+  // macOS app bundle location
+  return "/Applications/Godot.app/Contents/MacOS/Godot";
+}
+
+function getProjectPath(): string {
+  if (process.env.GODOT_PROJECT_PATH) return process.env.GODOT_PROJECT_PATH;
+  if (IS_PRODUCTION) return "/app/godot";
+  // Development: relative to this file (src/server -> ../../godot)
+  return join(dirname(import.meta.path), "../../godot");
+}
+
+const GODOT_PATH = getGodotPath();
+const PROJECT_PATH = getProjectPath();
 const LEVEL_SCENE = "res://scenes/level_1.tscn";
 
 // Store the subprocesses in a Map
