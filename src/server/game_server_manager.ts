@@ -12,7 +12,7 @@ const gameServers = new Map<string, GameServer>();
 
 // Path to Godot executable (configurable via env)
 const GODOT_PATH = "/usr/local/bin/godot";
-const PROJECT_PATH = join(import.meta.dir, "../../godot");
+const PROJECT_PATH = "/app/godot";
 
 // Level scene to load (can be made dynamic later)
 const LEVEL_SCENE = "res://scenes/level_1.tscn";
@@ -33,14 +33,13 @@ export function startGameServer(lobbyId: string): boolean {
         GODOT_PATH,
         "--headless",
         "--path", PROJECT_PATH,
-        "--scene", LEVEL_SCENE,
-        "--", // Godot passes args after this to the game
+        "--",
         "--server",
         "--lobby", lobbyId,
       ],
+      cwd: PROJECT_PATH,
       stdout: "pipe",
       stderr: "pipe",
-      cwd: PROJECT_PATH,
     });
 
     // Log stdout

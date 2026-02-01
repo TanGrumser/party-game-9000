@@ -6,13 +6,22 @@ WORKDIR /app
 USER root
 RUN set -eux; \
   if command -v apt-get >/dev/null 2>&1; then \
-    apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip && rm -rf /var/lib/apt/lists/*; \
+    apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl unzip \
+      libfontconfig1 libfreetype6 \
+      libx11-6 libxext6 libxrender1 libxi6 libxrandr2 libxinerama1 libxcursor1 \
+      libgl1 \
+    && rm -rf /var/lib/apt/lists/*; \
   elif command -v apk >/dev/null 2>&1; then \
-    apk add --no-cache ca-certificates curl unzip; \
+    apk add --no-cache \
+      ca-certificates curl unzip \
+      fontconfig freetype \
+      libx11 libxext libxrender libxi libxrandr libxinerama libxcursor \
+      mesa-gl; \
   else \
     echo "No supported package manager found (apt-get/apk)"; exit 1; \
   fi
-
+  
 # ---- install godot 4.6 (headless-capable binary) ----
 RUN set -eux; \
   mkdir -p /opt/godot && cd /opt/godot; \
@@ -31,6 +40,7 @@ RUN bun install --frozen-lockfile --production
 FROM base AS release
 COPY --from=install /app/node_modules ./node_modules
 COPY . .
+RUN test -f /app/godot/project.godot
 
 ENV NODE_ENV=production
 ENV PORT=3000
