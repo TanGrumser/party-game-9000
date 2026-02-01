@@ -3,7 +3,7 @@ import { join } from "path";
 
 // Path configuration
 const GODOT_PATH = "/usr/local/bin/godot";
-const PROJECT_PATH = join(import.meta.dir, "../../godot");
+const PROJECT_PATH = "/app/godot";
 const LEVEL_SCENE = "res://scenes/level_1.tscn";
 
 // Store the subprocesses in a Map
@@ -40,12 +40,18 @@ export function startGameServer(lobbyId: string): boolean {
 
   console.log(`[GameServerManager] Starting Godot server for lobby ${lobbyId}`);
   
-  try {
-    // We use a shell command to ensure the environment paths are respected
-    const command = `${GODOT_PATH} --headless --path ${PROJECT_PATH} --scene ${LEVEL_SCENE} -- --server --lobby ${lobbyId}`;
-    
+  try {    
     const proc = spawn({
-      cmd: ["/bin/bash", "-c", command],
+
+      cmd: [
+        GODOT_PATH,
+        "--headless",
+        "--path", PROJECT_PATH,
+        "--scene", LEVEL_SCENE,
+        "--",
+        "--server",
+        "--lobby", lobbyId,
+      ],
       cwd: PROJECT_PATH,
       stdout: "pipe",
       stderr: "pipe",
