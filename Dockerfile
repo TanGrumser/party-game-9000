@@ -26,7 +26,7 @@ RUN curl -L -o godot.zip "https://github.com/godotengine/godot/releases/download
 
 # ---- Install Application Dependencies ----
 FROM base AS deps
-COPY package.json bun.lockb ./
+COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile --production
 
 # ---- Final Production Image ----
