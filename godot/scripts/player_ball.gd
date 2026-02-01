@@ -1,5 +1,10 @@
 extends RigidBody2D
 
+# Player ball with PURE SERVER AUTHORITY
+# - All physics runs on dedicated server
+# - Clients freeze physics and use interpolation only
+# - Input (shots) sent to server, not applied locally
+
 @export var max_impulse: float = 800.0  # Maximum shot power
 @export var min_drag: float = 20.0  # Minimum drag distance to register a shot
 @export var max_drag: float = 200.0  # Maximum drag distance (clamped)
@@ -23,7 +28,7 @@ var is_local: bool = false:
 # Spawn point (can be updated for checkpoints)
 var spawn_position: Vector2 = Vector2.ZERO
 
-# Drag state
+# Drag state (input handling)
 var _is_dragging: bool = false
 var _drag_start_pos: Vector2 = Vector2.ZERO
 var _current_drag_pos: Vector2 = Vector2.ZERO
@@ -32,24 +37,30 @@ var _current_drag_pos: Vector2 = Vector2.ZERO
 var _drag_indicator: Node2D = null
 const DRAG_INDICATOR_SCENE = preload("res://scenes/drag_indicator.tscn")
 
+# Network interpolation for smooth movement from server
+var _interpolator: NetworkInterpolator = NetworkInterpolator.new()
+
+# Visual smoothing
+var _visual_position: Vector2 = Vector2.ZERO
+const VISUAL_SMOOTH_SPEED: float = 20.0
+
+# Respawn state
+var _stored_collision_layer: int = 0
+var _stored_collision_mask: int = 0
+
 func _ready() -> void:
-	can_sleep = false  # Never sleep - we need _integrate_forces for network sync
 	_visual_position = global_position
 	_update_appearance()
 	body_entered.connect(_on_body_entered)
 
 func _setup_for_network() -> void:
-	"""Called after is_local is set to configure physics appropriately."""
-	# With dedicated server: remote balls are frozen, local ball runs prediction
+	"""Called after spawning to configure for network play."""
+	# With dedicated server: ALL client balls are frozen
+	# Physics runs only on the server
 	if not LobbyManager.get_lobby_id().is_empty():
-		if is_local:
-			# Local ball: run physics for client-side prediction
-			freeze = false
-			print("[PlayerBall] %s is local - running prediction physics" % player_id)
-		else:
-			# Remote balls: frozen, use pure interpolation from server
-			freeze = true
-			print("[PlayerBall] %s is remote - physics frozen, using interpolation" % player_id)
+		freeze = true
+		can_sleep = false
+		print("[PlayerBall] %s frozen - pure interpolation from server (is_local=%s)" % [player_id, is_local])
 
 func _update_appearance() -> void:
 	var sprite = get_node_or_null("Sprite2D")
@@ -59,20 +70,9 @@ func _update_appearance() -> void:
 		if texture:
 			sprite.texture = texture
 
-# Network interpolation for smooth remote entity movement
-var _interpolator: NetworkInterpolator = NetworkInterpolator.new()
-
-# Network sync state (applied in _integrate_forces)
-var _sync_pending: bool = false
-var _sync_position: Vector2
-var _sync_velocity: Vector2
-
-# Visual smoothing - sprite smoothly follows physics body
-var _visual_position: Vector2 = Vector2.ZERO
-const VISUAL_SMOOTH_SPEED: float = 15.0  # How fast visual catches up (higher = faster)
-
-# Respawn state (applied in _integrate_forces)
-var _respawn_pending: bool = false
+# ============================================================================
+# INPUT HANDLING (local player only - sends to server, no local physics)
+# ============================================================================
 
 func _input(event: InputEvent) -> void:
 	if not is_local:
@@ -118,12 +118,10 @@ func _update_drag(pos: Vector2) -> void:
 		_update_indicator_positions(pos)
 
 func _update_indicator_positions(drag_pos: Vector2) -> void:
-	# Show indicator on top of ball, extending in the drag direction
-	var drag_offset = drag_pos - _drag_start_pos  # How far we've dragged from start
-	# Clamp drag offset to max_drag
+	var drag_offset = drag_pos - _drag_start_pos
 	if drag_offset.length() > max_drag:
 		drag_offset = drag_offset.normalized() * max_drag
-	var indicator_end = global_position + drag_offset  # Ball position + drag offset
+	var indicator_end = global_position + drag_offset
 	_drag_indicator.update_positions(global_position, indicator_end)
 
 func _end_drag(pos: Vector2) -> void:
@@ -137,36 +135,60 @@ func _end_drag(pos: Vector2) -> void:
 	if _drag_indicator:
 		_drag_indicator.hide_indicator()
 
-	# Calculate shot: direction from current drag position toward start position
-	# (drag away = shoot in opposite direction of drag)
+	# Calculate shot
 	var drag_offset = pos - _drag_start_pos
 	var distance = drag_offset.length()
 
 	if distance < min_drag:
 		return  # Too short a drag, ignore
 
-	# Clamp distance to max_drag and calculate strength (0 to 1)
+	# Clamp distance and calculate strength
 	var clamped_distance = minf(distance, max_drag)
 	var strength = inverse_lerp(min_drag, max_drag, clamped_distance)
 
 	# Direction is opposite of drag
 	var direction = -drag_offset.normalized()
-	var impulse = direction * max_impulse * strength
-	apply_central_impulse(impulse)
+	var power = max_impulse * strength
 
-	# Play shoot sound with volume based on strength
+	# Play shoot sound locally for immediate feedback
 	shoot_sound.volume_db = lerpf(-20.0, -10.0, strength)
 	shoot_sound.play()
 
-	print("[PlayerBall] Drag shot: player_id=%s, impulse=%s (strength: %.2f)" % [player_id, impulse, strength])
+	print("[PlayerBall] Shot: dir=%s, power=%.2f" % [direction, power])
 
-	# Send shot to other players
-	LobbyManager.send_ball_shot(
-		player_id,
-		direction.normalized(),
-		max_impulse * strength
-	)
-	print("[PlayerBall] Sent ball_shot for player_id=%s" % player_id)
+	# ONLY send to server - do NOT apply locally
+	# Server will apply physics and broadcast result
+	LobbyManager.send_ball_shot(player_id, direction.normalized(), power)
+
+# ============================================================================
+# NETWORK SYNC (pure interpolation from server)
+# ============================================================================
+
+func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
+	# All balls use interpolation - no special handling for local
+	_interpolator.add_state(pos, vel, timestamp)
+
+func _process(delta: float) -> void:
+	var sprite = get_node_or_null("Sprite2D")
+
+	# Debug mode (no lobby) - local physics for testing
+	if LobbyManager.get_lobby_id().is_empty():
+		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
+		if sprite:
+			sprite.global_position = _visual_position
+		return
+
+	# Network mode: pure interpolation from server state
+	_interpolator.update()
+	if _interpolator.has_valid_state:
+		global_position = _interpolator.interpolated_position
+		_visual_position = global_position
+		if sprite:
+			sprite.global_position = _visual_position
+
+# ============================================================================
+# SPAWN / RESPAWN
+# ============================================================================
 
 func get_spawn_position() -> Vector2:
 	return spawn_position
@@ -174,14 +196,11 @@ func get_spawn_position() -> Vector2:
 func set_spawn_position(pos: Vector2) -> void:
 	spawn_position = pos
 
-var _stored_collision_layer: int = 0
-var _stored_collision_mask: int = 0
-
 func respawn() -> void:
 	burnt_sound.play()
-	print("[PlayerBall] %s died, respawning in %.1f seconds at %s" % [player_id, respawn_delay, spawn_position])
+	print("[PlayerBall] %s died, respawning in %.1f seconds" % [player_id, respawn_delay])
 
-	# Clear interpolation buffer to prevent sliding from old position
+	# Clear interpolation buffer
 	_interpolator.clear()
 
 	# Store collision settings and disable
@@ -190,12 +209,11 @@ func respawn() -> void:
 	collision_layer = 0
 	collision_mask = 0
 
-	# Hide, freeze, and move far away
+	# Hide and move away
 	visible = false
-	freeze = true
 	global_position = Vector2(-99999, -99999)
 
-	# Send DEATH event immediately (only local player triggers this)
+	# Send DEATH event (only local player triggers)
 	if is_local:
 		LobbyManager.send_ball_death(player_id)
 
@@ -208,117 +226,33 @@ func _do_respawn() -> void:
 	collision_layer = _stored_collision_layer
 	collision_mask = _stored_collision_mask
 
-	# Unfreeze and show
-	freeze = false
+	# Show and set position
 	visible = true
-	_respawn_pending = true
-	_visual_position = spawn_position  # Snap visual to spawn position
-	sleeping = false
+	global_position = spawn_position
+	_visual_position = spawn_position
+
+	# Clear interpolation for clean start
+	_interpolator.clear()
+
 	print("[PlayerBall] %s respawned at %s" % [player_id, spawn_position])
 
-	# Send RESPAWN event after timer (only local player triggers this)
+	# Send RESPAWN event (only local player triggers)
 	if is_local:
 		LobbyManager.send_ball_respawn(player_id, spawn_position)
 
-# Called by game.gd to sync state from network
-func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
-	if is_local:
-		# Local ball with prediction: store server state for reconciliation
-		# Only correct if divergence is significant
-		var pos_diff = (pos - global_position).length()
-		if pos_diff > CORRECTION_THRESHOLD:
-			_sync_position = pos
-			_sync_velocity = vel
-			_sync_pending = true
-		return
-
-	# Remote balls: add to interpolation buffer for smooth rendering
-	_interpolator.add_state(pos, vel, timestamp)
-
-func _process(delta: float) -> void:
-	var sprite = get_node_or_null("Sprite2D")
-
-	# Debug mode (no lobby) - just do visual smoothing
-	if LobbyManager.get_lobby_id().is_empty():
-		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
-		if sprite:
-			sprite.global_position = _visual_position
-		return
-
-	# Local ball with prediction: visual follows physics, reconcile with server
-	if is_local:
-		# Apply pending server correction (smooth blend)
-		if _sync_pending:
-			_apply_server_correction(delta)
-
-		# Visual smoothly follows physics body
-		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
-		if sprite:
-			sprite.global_position = _visual_position
-		return
-
-	# Remote balls: pure interpolation from server state
-	_interpolator.update()
-	if _interpolator.has_valid_state:
-		global_position = _interpolator.interpolated_position
-		_visual_position = global_position
-		if sprite:
-			sprite.global_position = _visual_position
-
-# Server correction blending for prediction reconciliation
-const CORRECTION_BLEND_SPEED: float = 5.0  # How fast to blend to server position
-const CORRECTION_THRESHOLD: float = 10.0  # Below this, snap to server
-
-func _apply_server_correction(delta: float) -> void:
-	var diff = (_sync_position - global_position).length()
-
-	if diff < CORRECTION_THRESHOLD:
-		# Close enough - clear correction
-		_sync_pending = false
-		return
-
-	# Blend position toward server state
-	var blend_amount = CORRECTION_BLEND_SPEED * delta
-	global_position = global_position.lerp(_sync_position, blend_amount)
-	linear_velocity = linear_velocity.lerp(_sync_velocity, blend_amount)
-
-	# Check if correction is complete
-	if (global_position - _sync_position).length() < CORRECTION_THRESHOLD:
-		_sync_pending = false
-
-# Apply network sync during physics step (safe way to modify RigidBody2D)
-func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
-	if _respawn_pending:
-		_respawn_pending = false
-		state.transform.origin = spawn_position
-		state.linear_velocity = Vector2.ZERO
-		_visual_position = spawn_position  # Snap visual too
-		return
-
-	if _sync_pending:
-		_sync_pending = false
-		# Hard snap physics to authoritative state
-		# Visual will smoothly catch up in _process()
-		state.transform.origin = _sync_position
-		state.linear_velocity = _sync_velocity
-
 func handle_remote_death() -> void:
-	"""Called when another client reports this ball died."""
+	"""Called when server reports this ball died."""
 	print("[PlayerBall] %s remote death" % player_id)
 
-	# Clear interpolation buffer to prevent sliding from old position
 	_interpolator.clear()
 
-	# Store collision settings and disable
 	if collision_layer != 0:
 		_stored_collision_layer = collision_layer
 		_stored_collision_mask = collision_mask
 	collision_layer = 0
 	collision_mask = 0
 
-	# Hide and freeze
 	visible = false
-	freeze = true  # Freeze on both host and non-host during death
 	global_position = Vector2(-99999, -99999)
 	_visual_position = global_position
 
@@ -326,48 +260,41 @@ func handle_remote_respawn(spawn_pos: Vector2) -> void:
 	"""Called when server reports this ball respawned."""
 	print("[PlayerBall] %s remote respawn at %s" % [player_id, spawn_pos])
 
-	# Clear interpolation buffer to prevent sliding
 	_interpolator.clear()
-	_sync_pending = false
 
-	# Update spawn position if provided
 	if spawn_pos != Vector2.ZERO:
 		spawn_position = spawn_pos
 
-	# Directly set position
 	global_position = spawn_pos
 	_visual_position = spawn_pos
-
-	# Restore visibility and collision
 	visible = true
-
-	# Local ball: unfreeze for prediction physics
-	# Remote balls: stay frozen, use interpolation
-	if is_local:
-		freeze = false
 
 	if _stored_collision_layer != 0:
 		collision_layer = _stored_collision_layer
 		collision_mask = _stored_collision_mask
 
-const MIN_SOUND_SPEED: float = 50.0  # Below this, no sound
-const MAX_SOUND_SPEED: float = 500.0  # At this speed, full volume
+# ============================================================================
+# COLLISION SOUNDS
+# ============================================================================
+
+const MIN_SOUND_SPEED: float = 50.0
+const MAX_SOUND_SPEED: float = 500.0
 
 func _get_collision_volume(speed: float) -> float:
 	if speed < MIN_SOUND_SPEED:
-		return -80.0  # Effectively silent
+		return -80.0
 	var t = clampf((speed - MIN_SOUND_SPEED) / (MAX_SOUND_SPEED - MIN_SOUND_SPEED), 0.0, 1.0)
-	return lerpf(-20.0, 0.0, t)  # -20 dB at min speed, 0 dB at max speed
+	return lerpf(-20.0, 0.0, t)
 
 func _on_body_entered(body: Node) -> void:
+	# On clients, physics is frozen so this won't be called for real collisions
+	# Sounds are triggered based on interpolated velocity instead
 	var speed = linear_velocity.length()
 	if body is RigidBody2D:
-		# Use relative velocity for ball-to-ball collisions
 		speed = (linear_velocity - body.linear_velocity).length()
 
 	var volume = _get_collision_volume(speed)
 
-	# Ball collision sounds play for everyone
 	if body is RigidBody2D:
 		clack_sound.volume_db = volume
 		clack_sound.play()
@@ -375,11 +302,7 @@ func _on_body_entered(body: Node) -> void:
 		wall_sound.volume_db = volume
 		wall_sound.play()
 
-	# Only local player handles their own collision logic
-	if not is_local:
-		return
-
-	print("[PlayerBall] %s touched: %s" % [player_id, body.name])
-	# Check if it's a fire obstacle (by name or group)
-	if body.name.begins_with("Fire") or body.is_in_group("fire"):
-		respawn()
+	# Fire collision - only in debug mode (no lobby)
+	if is_local and LobbyManager.get_lobby_id().is_empty():
+		if body.name.begins_with("Fire") or body.is_in_group("fire"):
+			respawn()
