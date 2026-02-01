@@ -17,6 +17,10 @@ signal game_state_received(state: Dictionary)
 signal ball_shot_received(player_id: String, shot_data: Dictionary)
 signal ball_respawn_received(ball_id: String, spawn_position: Dictionary)
 signal ball_death_received(player_id: String, ball_id: String)
+signal goal_reached()
+signal level_ready_changed(player_id: String, is_level_ready: bool)
+signal all_players_level_ready()
+signal level_started(next_level: String)
 
 const DEFAULT_SERVER_URL = "http://localhost:3000/api"
 const DEFAULT_WS_URL = "ws://localhost:3000/ws"
@@ -207,6 +211,37 @@ func are_all_players_ready() -> bool:
 			return false
 	return true
 
+# ============ LEVEL READY API ============
+
+func send_goal_reached() -> void:
+	if not _connected:
+		return
+	var data = {"type": "goal_reached"}
+	_socket.send_text(JSON.stringify(data))
+	print("[LobbyManager] send_goal_reached")
+
+func set_level_ready(is_ready: bool) -> void:
+	if not _connected:
+		return
+	var data = {"type": "level_ready", "isLevelReady": is_ready}
+	_socket.send_text(JSON.stringify(data))
+	print("[LobbyManager] set_level_ready: %s" % is_ready)
+
+func start_next_level(next_level_path: String) -> void:
+	if not _connected or not _is_host:
+		return
+	var data = {"type": "next_level", "nextLevel": next_level_path}
+	_socket.send_text(JSON.stringify(data))
+	print("[LobbyManager] start_next_level: %s" % next_level_path)
+
+func are_all_players_level_ready() -> bool:
+	if _players.size() < 1:
+		return false
+	for p in _players:
+		if not p.get("isLevelReady", false):
+			return false
+	return true
+
 func get_player_name() -> String:
 	return _player_name
 
@@ -392,6 +427,34 @@ func _handle_message(message: String) -> void:
 			# Check if all players are ready
 			if are_all_players_ready():
 				all_players_ready.emit()
+
+		"goal_reached":
+			# Reset level ready states for all players
+			for p in _players:
+				p.isLevelReady = false
+			goal_reached.emit()
+			print("[LobbyManager] Goal reached - level complete!")
+
+		"level_ready_changed":
+			var player_id = data.get("playerId", "")
+			var is_level_ready = data.get("isLevelReady", false)
+
+			# Update player's level ready state in local list
+			for p in _players:
+				if p.id == player_id:
+					p.isLevelReady = is_level_ready
+					break
+
+			level_ready_changed.emit(player_id, is_level_ready)
+
+			# Check if all players are level ready
+			if are_all_players_level_ready():
+				all_players_level_ready.emit()
+
+		"level_started":
+			var next_level = data.get("nextLevel", "")
+			level_started.emit(next_level)
+			print("[LobbyManager] Level started: %s" % next_level)
 
 		"returned_to_lobby":
 			# Update players list with reset ready states

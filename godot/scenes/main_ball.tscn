@@ -3,8 +3,8 @@
 [ext_resource type="Texture2D" uid="uid://1hm8f2xr3li0" path="res://sprites/marble.PNG" id="2_3hnxj"]
 [ext_resource type="Script" uid="uid://ukkpwtvc7nrj" path="res://scripts/main_ball.gd" id="2_main"]
 [ext_resource type="AudioStream" uid="uid://bp2nju3io4dns" path="res://sounds/_burnt.mp3" id="3_3hnxj"]
-[ext_resource type="AudioStream" uid="uid://dg5ov38m70jxs" path="res://sounds/ball_clack.mp3" id="4_clack"]
-[ext_resource type="AudioStream" uid="uid://cexo4xwmdj3xq" path="res://sounds/wall.mp3" id="5_wall"]
+[ext_resource type="AudioStream" uid="uid://bidbjflclo8p2" path="res://sounds/ball_clack.mp3" id="4_clack"]
+[ext_resource type="AudioStream" uid="uid://dk14odqpmttx2" path="res://sounds/wall.mp3" id="5_wall"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_main_ball"]
 bounce = 0.6
@@ -30,8 +30,8 @@ texture = ExtResource("2_3hnxj")
 [node name="BurntSound" type="AudioStreamPlayer" parent="." unique_id=354113946]
 stream = ExtResource("3_3hnxj")
 
-[node name="ClackSound" type="AudioStreamPlayer" parent="."]
+[node name="ClackSound" type="AudioStreamPlayer" parent="." unique_id=536792998]
 stream = ExtResource("4_clack")
 
-[node name="WallSound" type="AudioStreamPlayer" parent="."]
+[node name="WallSound" type="AudioStreamPlayer" parent="." unique_id=1125782661]
 stream = ExtResource("5_wall")

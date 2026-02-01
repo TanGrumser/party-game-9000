@@ -217,3 +217,8 @@ func _on_body_entered(body: Node) -> void:
 	if LobbyManager.get_lobby_id().is_empty():
 		if body.name.begins_with("Fire") or body.is_in_group("fire"):
 			respawn()
+	
+func _on_goal_body_entered(_body: Node2D) -> void:
+	var game = get_parent()
+	if game.has_method("on_goal_hit"):
+		game.on_goal_hit()

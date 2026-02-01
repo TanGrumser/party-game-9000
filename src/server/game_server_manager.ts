@@ -2,7 +2,7 @@ import { spawn, type Subprocess } from "bun";
 import { join } from "path";
 
 // Path configuration
-const GODOT_PATH = "/usr/local/bin/godot";
+const GODOT_PATH = process.env.GODOT_PATH || "godot";
 const PROJECT_PATH = "/app/godot";
 const LEVEL_SCENE = "res://scenes/level_1.tscn";
 

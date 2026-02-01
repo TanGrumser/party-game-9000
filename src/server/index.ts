@@ -14,6 +14,7 @@ interface Player {
   name: string;
   isHost: boolean;
   isReady: boolean;
+  isLevelReady: boolean;
 }
 
 interface Lobby {
@@ -21,6 +22,7 @@ interface Lobby {
   players: Map<string, { ws: ServerWebSocket<ClientData>; player: Player }>;
   hostId: string | null;
   gameStarted: boolean;
+  levelCompleted: boolean;
   gameServerWs: ServerWebSocket<ClientData> | null;  // Dedicated Godot server connection
 }
 
@@ -112,6 +114,7 @@ const server = serve({
         name: playerName,
         isHost,
         isReady: false,
+        isLevelReady: false,
       };
 
       if (isHost) {
@@ -293,6 +296,92 @@ const server = serve({
           }
         }
 
+        // Goal reached - level completed
+        if (data.type === "goal_reached") {
+          console.log(`[WS] Goal reached in lobby ${lobbyId}`);
+          lobby.levelCompleted = true;
+
+          // Reset all level ready states
+          for (const [, { player }] of lobby.players) {
+            player.isLevelReady = false;
+          }
+
+          // Broadcast to all players
+          const goalMessage = JSON.stringify({
+            type: "goal_reached",
+            players: getPlayerList(lobby),
+          });
+          broadcast(lobby, goalMessage);
+          ws.send(goalMessage);
+
+          // Notify game server
+          if (lobby.gameServerWs) {
+            lobby.gameServerWs.send(goalMessage);
+          }
+        }
+
+        // Level ready state toggle
+        if (data.type === "level_ready") {
+          const playerEntry = lobby.players.get(playerId);
+          if (playerEntry) {
+            playerEntry.player.isLevelReady = data.isLevelReady ?? !playerEntry.player.isLevelReady;
+            console.log(`[WS] Player ${playerId} level ready: ${playerEntry.player.isLevelReady}`);
+
+            // Broadcast level ready state change to all players
+            broadcast(lobby, JSON.stringify({
+              type: "level_ready_changed",
+              playerId,
+              isLevelReady: playerEntry.player.isLevelReady,
+              players: getPlayerList(lobby),
+            }));
+
+            // Also send to the player who changed their state
+            ws.send(JSON.stringify({
+              type: "level_ready_changed",
+              playerId,
+              isLevelReady: playerEntry.player.isLevelReady,
+              players: getPlayerList(lobby),
+            }));
+          }
+        }
+
+        // Next level - host starts next level
+        if (data.type === "next_level") {
+          if (playerId !== lobby.hostId) {
+            ws.send(JSON.stringify({ type: "error", message: "Only host can start next level" }));
+            return;
+          }
+
+          // Validate all players are level ready
+          const allReady = Array.from(lobby.players.values()).every(({ player }) => player.isLevelReady);
+          if (!allReady) {
+            ws.send(JSON.stringify({ type: "error", message: "Not all players are ready" }));
+            return;
+          }
+
+          console.log(`[WS] Starting next level in lobby ${lobbyId}`);
+          lobby.levelCompleted = false;
+
+          // Reset level ready states
+          for (const [, { player }] of lobby.players) {
+            player.isLevelReady = false;
+          }
+
+          const nextLevel = data.nextLevel || "";
+          const levelMessage = JSON.stringify({ type: "level_started", nextLevel });
+          broadcast(lobby, levelMessage);
+          ws.send(levelMessage);
+
+          // Notify game server
+          if (lobby.gameServerWs) {
+            lobby.gameServerWs.send(JSON.stringify({
+              type: "level_started",
+              nextLevel,
+              players: getPlayerList(lobby),
+            }));
+          }
+        }
+
       } catch (e) {
         console.error(`[WS] Error parsing message: ${e}`);
       }
@@ -371,6 +460,7 @@ const server = serve({
         players: new Map(),
         hostId: null,
         gameStarted: false,
+        levelCompleted: false,
         gameServerWs: null,
       });
       console.log(`[SERVER] Created lobby: ${lobbyId}`);

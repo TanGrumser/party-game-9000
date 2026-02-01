@@ -8,9 +8,11 @@
 [ext_resource type="PackedScene" path="res://scenes/flame_arm.tscn" id="6_fcfvj"]
 [ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/hole.tscn" id="7_pa8r4"]
 [ext_resource type="PackedScene" path="res://scenes/wall.tscn" id="8_15mv3"]
+[ext_resource type="PackedScene" uid="uid://cnb0g4hwqy52w" path="res://scenes/goal.tscn" id="9_e3sih"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
 script = ExtResource("1_5xbjy")
+next_level_path = "res://scenes/level_2.tscn"
 
 [node name="TiledBackground" parent="." unique_id=1360794295 instance=ExtResource("2_4nkto")]
 position = Vector2(934, 509)
@@ -149,5 +151,8 @@ scale = Vector2(2.2399986, 1)
 position = Vector2(-1767, 1070)
 rotation = 1.5707964
 
-[connection signal="body_entered" from="MainBall" to="MainBall" method="_on_body_entered"]
+[node name="Goal" parent="." unique_id=230480563 instance=ExtResource("9_e3sih")]
+position = Vector2(566, -96)
+
 [connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]
+[connection signal="body_entered" from="Goal" to="MainBall" method="_on_goal_body_entered"]

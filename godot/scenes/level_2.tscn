@@ -11,6 +11,7 @@
 
 [node name="Game" type="Node2D" unique_id=147279626]
 script = ExtResource("1_ne2mo")
+next_level_path = "res://scenes/main_menu.tscn"
 
 [node name="TiledBackground" parent="." unique_id=1360794295 instance=ExtResource("2_6cvei")]
 position = Vector2(934, 509)

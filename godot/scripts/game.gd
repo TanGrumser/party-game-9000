@@ -8,14 +8,20 @@ const SPAWN_RADIUS = 150.0  # Distance from main ball to spawn player balls
 const SPAWN_OFFSET = 80.0  # Offset between player ball spawn points to prevent overlap
 const BROADCAST_INTERVAL = 0.05  # 50ms = 20 ticks per second (server only)
 
+@export var next_level_path: String = ""  # Path to next level scene
+
 @onready var ball_scene = preload("res://scenes/player_ball.tscn")
 @onready var main_ball = $MainBall
 @onready var game_camera = $GameCamera
+
+const LevelCompleteOverlayScene = preload("res://scenes/level_complete_overlay.tscn")
 
 var _balls: Dictionary = {}  # player_id -> RigidBody2D
 var _is_server: bool = false
 var _broadcast_timer: float = 0.0
 var _server_players: Array = []  # Players list for server mode
+var _level_complete_overlay: CanvasLayer = null
+var _level_completed: bool = false
 
 func _ready() -> void:
 	_is_server = _detect_server_mode()
@@ -78,6 +84,7 @@ func _setup_client_mode() -> void:
 	LobbyManager.ball_death_received.connect(_on_ball_death_received)
 	LobbyManager.ball_respawn_received.connect(_on_ball_respawn_received)
 	LobbyManager.player_left.connect(_on_player_left)
+	LobbyManager.goal_reached.connect(_on_goal_reached)
 
 	# Check if we have a lobby connection, otherwise spawn debug ball
 	if LobbyManager.get_lobby_id().is_empty():
@@ -364,6 +371,46 @@ func _on_player_left(player_id: String, player_name: String) -> void:
 		game_camera.remove_target(ball)
 		ball.queue_free()
 		_balls.erase(player_id)
+
+# ============================================================================
+# LEVEL COMPLETE
+# ============================================================================
+
+func on_goal_hit() -> void:
+	"""Called by main_ball when it collides with the goal."""
+	if _level_completed:
+		return  # Already completed
+
+	print("[Game] Goal hit!")
+	_level_completed = true
+
+	if LobbyManager.get_lobby_id().is_empty():
+		# Local mode - show overlay directly
+		_show_level_complete_overlay()
+	else:
+		# Network mode - send goal reached to server
+		LobbyManager.send_goal_reached()
+
+func _on_goal_reached() -> void:
+	"""Called when server broadcasts goal_reached."""
+	print("[Game] Goal reached signal received")
+	_level_completed = true
+	_show_level_complete_overlay()
+
+func _show_level_complete_overlay() -> void:
+	if _level_complete_overlay != null:
+		return  # Already showing
+
+	_level_complete_overlay = LevelCompleteOverlayScene.instantiate()
+	_level_complete_overlay.set_next_level_path(next_level_path)
+	_level_complete_overlay.closed.connect(_on_level_complete_overlay_closed)
+	add_child(_level_complete_overlay)
+	print("[Game] Showing level complete overlay (next: %s)" % next_level_path)
+
+func _on_level_complete_overlay_closed() -> void:
+	if _level_complete_overlay:
+		_level_complete_overlay.queue_free()
+		_level_complete_overlay = null
 
 func _on_back_pressed() -> void:
 	LobbyManager.return_to_lobby()
