@@ -40,11 +40,16 @@ func _ready() -> void:
 
 func _setup_for_network() -> void:
 	"""Called after is_local is set to configure physics appropriately."""
-	# Host runs physics for ALL balls (is authoritative)
-	# Non-host only runs physics for local ball, freezes others for pure interpolation
-	if not is_local and not LobbyManager.is_host():
-		freeze = true
-		print("[PlayerBall] %s is remote on non-host - physics frozen, using pure interpolation" % player_id)
+	# With dedicated server: remote balls are frozen, local ball runs prediction
+	if not LobbyManager.get_lobby_id().is_empty():
+		if is_local:
+			# Local ball: run physics for client-side prediction
+			freeze = false
+			print("[PlayerBall] %s is local - running prediction physics" % player_id)
+		else:
+			# Remote balls: frozen, use pure interpolation from server
+			freeze = true
+			print("[PlayerBall] %s is remote - physics frozen, using interpolation" % player_id)
 
 func _update_appearance() -> void:
 	var sprite = get_node_or_null("Sprite2D")
@@ -218,46 +223,68 @@ func _do_respawn() -> void:
 # Called by game.gd to sync state from network
 func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
 	if is_local:
-		# Local player: hard snap physics, visual will smooth catch up
-		# Only correct if significantly diverged (>50px)
+		# Local ball with prediction: store server state for reconciliation
+		# Only correct if divergence is significant
 		var pos_diff = (pos - global_position).length()
-		if pos_diff > 50.0:
+		if pos_diff > CORRECTION_THRESHOLD:
 			_sync_position = pos
 			_sync_velocity = vel
 			_sync_pending = true
-			sleeping = false
 		return
 
-	# Remote players: add to interpolation buffer (physics is frozen)
+	# Remote balls: add to interpolation buffer for smooth rendering
 	_interpolator.add_state(pos, vel, timestamp)
 
 func _process(delta: float) -> void:
 	var sprite = get_node_or_null("Sprite2D")
 
-	# Host runs physics for all balls - just do visual smoothing
-	if LobbyManager.is_host():
+	# Debug mode (no lobby) - just do visual smoothing
+	if LobbyManager.get_lobby_id().is_empty():
 		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
 		if sprite:
 			sprite.global_position = _visual_position
 		return
 
-	# Non-host: local player runs physics with visual smoothing
+	# Local ball with prediction: visual follows physics, reconcile with server
 	if is_local:
+		# Apply pending server correction (smooth blend)
+		if _sync_pending:
+			_apply_server_correction(delta)
+
+		# Visual smoothly follows physics body
 		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
 		if sprite:
 			sprite.global_position = _visual_position
 		return
 
-	# Non-host remote players: pure interpolation (physics is frozen)
+	# Remote balls: pure interpolation from server state
 	_interpolator.update()
-
 	if _interpolator.has_valid_state:
-		# Directly set position - no physics simulation to fight
 		global_position = _interpolator.interpolated_position
-		# Visual follows directly since we're not doing physics correction
 		_visual_position = global_position
 		if sprite:
 			sprite.global_position = _visual_position
+
+# Server correction blending for prediction reconciliation
+const CORRECTION_BLEND_SPEED: float = 5.0  # How fast to blend to server position
+const CORRECTION_THRESHOLD: float = 10.0  # Below this, snap to server
+
+func _apply_server_correction(delta: float) -> void:
+	var diff = (_sync_position - global_position).length()
+
+	if diff < CORRECTION_THRESHOLD:
+		# Close enough - clear correction
+		_sync_pending = false
+		return
+
+	# Blend position toward server state
+	var blend_amount = CORRECTION_BLEND_SPEED * delta
+	global_position = global_position.lerp(_sync_position, blend_amount)
+	linear_velocity = linear_velocity.lerp(_sync_velocity, blend_amount)
+
+	# Check if correction is complete
+	if (global_position - _sync_position).length() < CORRECTION_THRESHOLD:
+		_sync_pending = false
 
 # Apply network sync during physics step (safe way to modify RigidBody2D)
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
@@ -296,11 +323,12 @@ func handle_remote_death() -> void:
 	_visual_position = global_position
 
 func handle_remote_respawn(spawn_pos: Vector2) -> void:
-	"""Called when another client reports this ball respawned."""
+	"""Called when server reports this ball respawned."""
 	print("[PlayerBall] %s remote respawn at %s" % [player_id, spawn_pos])
 
 	# Clear interpolation buffer to prevent sliding
 	_interpolator.clear()
+	_sync_pending = false
 
 	# Update spawn position if provided
 	if spawn_pos != Vector2.ZERO:
@@ -313,9 +341,9 @@ func handle_remote_respawn(spawn_pos: Vector2) -> void:
 	# Restore visibility and collision
 	visible = true
 
-	# Host unfreezes (runs physics for all balls)
-	# Non-host keeps remote balls frozen (pure interpolation)
-	if LobbyManager.is_host():
+	# Local ball: unfreeze for prediction physics
+	# Remote balls: stay frozen, use interpolation
+	if is_local:
 		freeze = false
 
 	if _stored_collision_layer != 0:

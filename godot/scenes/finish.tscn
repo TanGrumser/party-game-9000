@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://cfyh3u8l7sj41"]
+
+[ext_resource type="Texture2D" uid="uid://bn8qakhwv5eu0" path="res://scenes/circle.png" id="1_5nbog"]
+[ext_resource type="Script" path="res://scripts/finish.gd" id="2_finish"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_07gpw"]
+radius = 357.0
+
+[node name="Finish" type="Area2D" unique_id=286039981]
+collision_layer = 0
+script = ExtResource("2_finish")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=926724888]
+shape = SubResource("CircleShape2D_07gpw")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1891356108]
+modulate = Color(0.3, 0.8, 0.3, 0.6)
+texture = ExtResource("1_5nbog")

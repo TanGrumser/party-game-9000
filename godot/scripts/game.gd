@@ -1,21 +1,77 @@
 extends Node2D
 
-const BROADCAST_INTERVAL = 0.1  # 100ms
+# Handles both DEDICATED SERVER and CLIENT modes:
+# - Server: Runs physics for all balls, broadcasts state via ServerNetwork
+# - Client: Freezes physics, receives state from server via LobbyManager
+
 const SPAWN_RADIUS = 150.0  # Distance from main ball to spawn player balls
 const SPAWN_OFFSET = 80.0  # Offset between player ball spawn points to prevent overlap
+const BROADCAST_INTERVAL = 0.05  # 50ms = 20 ticks per second (server only)
 
 @onready var ball_scene = preload("res://scenes/player_ball.tscn")
 @onready var main_ball = $MainBall
 @onready var game_camera = $GameCamera
 
 var _balls: Dictionary = {}  # player_id -> RigidBody2D
+var _is_server: bool = false
 var _broadcast_timer: float = 0.0
+var _server_players: Array = []  # Players list for server mode
 
 func _ready() -> void:
-	print("[Game] Scene loaded")
+	_is_server = _detect_server_mode()
+
+	if _is_server:
+		_setup_server_mode()
+	else:
+		_setup_client_mode()
+
+func _detect_server_mode() -> bool:
+	# Debug: print detection info
+	var display_name = DisplayServer.get_name()
+	var args = OS.get_cmdline_args()
+	var user_args = OS.get_cmdline_user_args()
+	print("[Game] Server mode detection:")
+	print("[Game]   DisplayServer.get_name() = '%s'" % display_name)
+	print("[Game]   OS.get_cmdline_args() = %s" % [args])
+	print("[Game]   OS.get_cmdline_user_args() = %s" % [user_args])
+
+	# Check if running headless (dedicated server)
+	if display_name == "headless":
+		print("[Game]   -> Detected HEADLESS mode")
+		return true
+
+	# Check command line args (both regular and user args after --)
+	var all_args = args + user_args
+	for arg in all_args:
+		if arg == "--server" or arg == "--dedicated":
+			print("[Game]   -> Detected --server flag")
+			return true
+
+	print("[Game]   -> No server mode detected")
+	return false
+
+func _setup_server_mode() -> void:
+	print("[Game] === DEDICATED SERVER MODE ===")
+
+	# Connect to ServerNetwork signals
+	ServerNetwork.game_started.connect(_on_server_game_started)
+	ServerNetwork.player_joined.connect(_on_server_player_joined)
+	ServerNetwork.player_left.connect(_on_server_player_left)
+	ServerNetwork.ball_shot_received.connect(_on_server_ball_shot)
+	ServerNetwork.ball_death_received.connect(_on_server_ball_death)
+	ServerNetwork.ball_respawn_received.connect(_on_server_ball_respawn)
+
+	# Server runs physics - unfreeze main ball
+	main_ball.freeze = false
+
+	# Connect to Bun server
+	ServerNetwork.connect_to_relay()
+	print("[Game] Server connecting to relay...")
+
+func _setup_client_mode() -> void:
+	print("[Game] Scene loaded (CLIENT MODE - dedicated server handles physics)")
 	print("[Game] Connected to lobby: %s" % LobbyManager.get_lobby_id())
 	print("[Game] Player ID: %s" % LobbyManager.get_player_id())
-	print("[Game] Is host: %s" % LobbyManager.is_host())
 
 	LobbyManager.game_state_received.connect(_on_game_state_received)
 	LobbyManager.ball_shot_received.connect(_on_ball_shot_received)
@@ -29,12 +85,127 @@ func _ready() -> void:
 		%LobbyLabel.text = "DEBUG MODE"
 		_spawn_debug_ball()
 	else:
-		%LobbyLabel.text = "Lobby: %s | %s" % [
-			LobbyManager.get_lobby_id(),
-			"HOST" if LobbyManager.is_host() else "PLAYER"
-		]
+		%LobbyLabel.text = "Lobby: %s" % LobbyManager.get_lobby_id()
 		# Spawn balls for all players in the lobby
 		_spawn_all_player_balls()
+
+# ============================================================================
+# SERVER MODE - Physics authority
+# ============================================================================
+
+func _on_server_game_started(lobby_id: String, players: Array) -> void:
+	print("[Game:Server] Game started in lobby %s with %d players" % [lobby_id, players.size()])
+	_server_players = players
+	_spawn_server_balls()
+
+func _spawn_server_balls() -> void:
+	print("[Game:Server] Spawning %d player balls" % _server_players.size())
+
+	for i in range(_server_players.size()):
+		var player = _server_players[i]
+		var player_id = player.get("id", "")
+		_spawn_server_ball(player_id, i, _server_players.size())
+
+func _spawn_server_ball(player_id: String, index: int, total: int) -> void:
+	if _balls.has(player_id):
+		return  # Already spawned
+
+	var ball = ball_scene.instantiate()
+	ball.player_id = player_id
+	ball.is_local = false  # Server treats all balls as remote (no input handling)
+
+	# Calculate spawn position
+	var spawn_pos = main_ball.global_position + Vector2(SPAWN_RADIUS + index * SPAWN_OFFSET, 0)
+	ball.global_position = spawn_pos
+	ball.set_spawn_position(spawn_pos)
+
+	# Server runs physics for ALL balls - don't freeze
+	ball.freeze = false
+
+	add_child(ball)
+	_balls[player_id] = ball
+
+	print("[Game:Server] Spawned ball for %s at %s" % [player_id, spawn_pos])
+
+func _on_server_player_joined(player_id: String, player_name: String) -> void:
+	print("[Game:Server] Player joined mid-game: %s (%s)" % [player_name, player_id])
+	var index = _balls.size()
+	_spawn_server_ball(player_id, index, index + 1)
+
+func _on_server_player_left(player_id: String) -> void:
+	print("[Game:Server] Player left: %s" % player_id)
+	if _balls.has(player_id):
+		var ball = _balls[player_id]
+		ball.queue_free()
+		_balls.erase(player_id)
+
+func _on_server_ball_shot(player_id: String, direction: Vector2, power: float) -> void:
+	print("[Game:Server] Received shot from %s: dir=%s, power=%.2f" % [player_id, direction, power])
+
+	var ball = _balls.get(player_id)
+	if ball == null:
+		print("[Game:Server] WARNING: No ball for player %s" % player_id)
+		return
+
+	var impulse = direction.normalized() * power
+	ball.apply_central_impulse(impulse)
+	print("[Game:Server] Applied impulse %s to %s" % [impulse, player_id])
+
+	# Broadcast state immediately after shot for responsiveness
+	_broadcast_game_state()
+
+func _on_server_ball_death(player_id: String, ball_id: String) -> void:
+	print("[Game:Server] Ball death: %s (from %s)" % [ball_id, player_id])
+
+	if ball_id == "main":
+		if main_ball:
+			main_ball.respawn()
+		return
+
+	var ball = _balls.get(ball_id)
+	if ball:
+		ball.respawn()
+
+func _on_server_ball_respawn(ball_id: String, spawn_pos: Vector2) -> void:
+	print("[Game:Server] Ball respawn: %s at %s" % [ball_id, spawn_pos])
+	# Respawn is handled by the ball's respawn() method
+
+func _process(delta: float) -> void:
+	if not _is_server:
+		return  # Client doesn't broadcast
+
+	_broadcast_timer += delta
+	if _broadcast_timer >= BROADCAST_INTERVAL:
+		_broadcast_timer = 0.0
+		_broadcast_game_state()
+
+func _broadcast_game_state() -> void:
+	var balls_data: Array = []
+
+	# Include main ball state
+	if main_ball and main_ball.visible:
+		balls_data.append({
+			"playerId": "main",
+			"position": {"x": main_ball.global_position.x, "y": main_ball.global_position.y},
+			"velocity": {"x": main_ball.linear_velocity.x, "y": main_ball.linear_velocity.y},
+		})
+
+	# Include player balls
+	for player_id in _balls:
+		var ball: RigidBody2D = _balls[player_id]
+		if not ball.visible:
+			continue
+		balls_data.append({
+			"playerId": player_id,
+			"position": {"x": ball.global_position.x, "y": ball.global_position.y},
+			"velocity": {"x": ball.linear_velocity.x, "y": ball.linear_velocity.y},
+		})
+
+	ServerNetwork.send_game_state(balls_data)
+
+# ============================================================================
+# CLIENT MODE - Receive and interpolate
+# ============================================================================
 
 func _spawn_debug_ball() -> void:
 	var ball = ball_scene.instantiate()
@@ -95,40 +266,8 @@ func _spawn_ball_at_index(player_id: String, index: int, total: int, is_local: b
 	])
 	return ball
 
-func _process(delta: float) -> void:
-	if not LobbyManager.is_host():
-		return
-
-	_broadcast_timer += delta
-	if _broadcast_timer >= BROADCAST_INTERVAL:
-		_broadcast_timer = 0.0
-		_broadcast_game_state()
-
-func _broadcast_game_state() -> void:
-	var balls_data: Array = []
-
-	# Include main ball state
-	balls_data.append({
-		"playerId": "main",
-		"position": {"x": main_ball.global_position.x, "y": main_ball.global_position.y},
-		"velocity": {"x": main_ball.linear_velocity.x, "y": main_ball.linear_velocity.y},
-	})
-
-	# Include player balls
-	for player_id in _balls:
-		var ball: RigidBody2D = _balls[player_id]
-		balls_data.append({
-			"playerId": player_id,
-			"position": {"x": ball.global_position.x, "y": ball.global_position.y},
-			"velocity": {"x": ball.linear_velocity.x, "y": ball.linear_velocity.y},
-		})
-
-	LobbyManager.send_game_state(balls_data)
-
 func _on_game_state_received(state: Dictionary) -> void:
-	# Non-host players sync state from host
-	if LobbyManager.is_host():
-		return
+	# All clients receive authoritative state from dedicated server
 
 	var timestamp = state.get("timestamp", 0)
 	var balls_data = state.get("balls", [])
@@ -157,40 +296,23 @@ func _on_game_state_received(state: Dictionary) -> void:
 		ball.sync_from_network(new_pos, new_vel, timestamp)
 
 func _on_ball_shot_received(player_id: String, shot_data: Dictionary) -> void:
-	print("[Game] ball_shot_received: player_id=%s, is_host=%s, my_id=%s" % [player_id, LobbyManager.is_host(), LobbyManager.get_player_id()])
-	print("[Game] Known balls: %s" % [_balls.keys()])
+	# With dedicated server, shots are applied server-side.
+	# This callback is informational only (e.g., for sound effects).
+	# The authoritative state will arrive via game_state messages.
 
-	# Host applies shots from other players to physics
-	if not LobbyManager.is_host():
-		print("[Game] SKIPPED - not host")
-		return
-
-	# Don't apply our own shots (already applied locally)
+	# Skip our own shots (already handled locally with prediction)
 	if player_id == LobbyManager.get_player_id():
-		print("[Game] SKIPPED - own shot")
 		return
 
-	var ball = _balls.get(player_id)
-	if ball == null:
-		print("[Game] ERROR: No ball found for player %s in _balls" % player_id)
-		return
-
-	var dir = shot_data.get("direction", {})
-	var power = shot_data.get("power", 0.0)
-	var direction = Vector2(dir.get("x", 0), dir.get("y", 0))
-	var impulse = direction * power
-
-	ball.apply_central_impulse(impulse)
-	print("[Game] SUCCESS: Applied shot from %s: %s" % [player_id, impulse])
+	# Could play shot sound effect for other players here if desired
+	print("[Game] Shot received from %s (server will apply physics)" % player_id)
 
 func _on_ball_death_received(player_id: String, ball_id: String) -> void:
 	print("[Game] ball_death received: player_id=%s, ball_id=%s" % [player_id, ball_id])
 
 	# Handle main ball death
 	if ball_id == "main":
-		# Only non-host handles remote main ball death
-		if not LobbyManager.is_host():
-			main_ball.handle_remote_death()
+		main_ball.handle_remote_death()
 		return
 
 	# Handle player ball death
@@ -211,9 +333,7 @@ func _on_ball_respawn_received(ball_id: String, spawn_pos_data: Dictionary) -> v
 
 	# Handle main ball respawn
 	if ball_id == "main":
-		# Only non-host handles remote main ball respawn
-		if not LobbyManager.is_host():
-			main_ball.handle_remote_respawn(spawn_pos)
+		main_ball.handle_remote_respawn(spawn_pos)
 		return
 
 	# Handle player ball respawn

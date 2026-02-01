@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 [autoload]
 
 LobbyManager="*res://scripts/lobby_manager.gd"
+ServerNetwork="*res://scripts/server_network.gd"
 
 [display]
 

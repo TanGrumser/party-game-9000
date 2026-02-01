@@ -12,20 +12,35 @@ func _ready() -> void:
 	can_sleep = false  # Never sleep - we need _integrate_forces for network sync
 	_spawn_position = global_position
 	_visual_position = global_position
-	body_entered.connect(_on_body_entered)
+	# Connect body_entered only if not already connected (scene may have it connected)
+	if not body_entered.is_connected(_on_body_entered):
+		body_entered.connect(_on_body_entered)
 
-	# Non-host: freeze physics, use pure interpolation from host
-	if not LobbyManager.is_host() and not LobbyManager.get_lobby_id().is_empty():
+	# Check if running as dedicated server
+	var is_server = _detect_server_mode()
+
+	if is_server:
+		# Server runs physics - keep unfrozen
+		freeze = false
+		print("[MainBall] SERVER mode - physics enabled")
+	elif not LobbyManager.get_lobby_id().is_empty():
+		# Client connected to lobby - freeze physics, use interpolation from server
 		freeze = true
-		print("[MainBall] Non-host - physics frozen, using pure interpolation")
+		print("[MainBall] CLIENT mode - physics frozen, using interpolation from server")
+	# else: Debug mode (no lobby) - keep physics for local testing
+
+func _detect_server_mode() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return true
+	# Check both regular args and user args (after --)
+	var all_args = OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	for arg in all_args:
+		if arg == "--server" or arg == "--dedicated":
+			return true
+	return false
 
 # Network interpolation for smooth movement
 var _interpolator: NetworkInterpolator = NetworkInterpolator.new()
-
-# Network sync state (applied in _integrate_forces)
-var _sync_pending: bool = false
-var _sync_position: Vector2
-var _sync_velocity: Vector2
 
 # Visual smoothing - sprite smoothly follows physics body
 var _visual_position: Vector2 = Vector2.ZERO
@@ -42,18 +57,17 @@ func sync_from_network(pos: Vector2, vel: Vector2, timestamp: int = 0) -> void:
 func _process(delta: float) -> void:
 	var sprite = get_node_or_null("Sprite2D")
 
-	if LobbyManager.is_host():
-		# Host: visual smoothly follows physics body
+	# Debug mode (no lobby) - visual smoothing only
+	if LobbyManager.get_lobby_id().is_empty():
 		_visual_position = _visual_position.lerp(global_position, VISUAL_SMOOTH_SPEED * delta)
 		if sprite:
 			sprite.global_position = _visual_position
 		return
 
-	# Non-host: pure interpolation (physics is frozen)
+	# With dedicated server: all clients use interpolation from server state
 	_interpolator.update()
 
 	if _interpolator.has_valid_state:
-		# Directly set position - no physics simulation to fight
 		global_position = _interpolator.interpolated_position
 		_visual_position = global_position
 		if sprite:
@@ -86,9 +100,8 @@ func respawn() -> void:
 	freeze = true
 	global_position = Vector2(-99999, -99999)
 
-	# Send DEATH event immediately (only host triggers this for main ball)
-	if LobbyManager.is_host():
-		LobbyManager.send_ball_death("main")
+	# Send DEATH event (server will handle physics)
+	LobbyManager.send_ball_death("main")
 
 	# Create respawn timer
 	var timer = get_tree().create_timer(respawn_delay)
@@ -99,17 +112,14 @@ func _do_respawn() -> void:
 	collision_layer = _stored_collision_layer
 	collision_mask = _stored_collision_mask
 
-	# Unfreeze and show
-	freeze = false
+	# Show but stay frozen (server runs physics)
 	visible = true
 	_respawn_pending = true
-	_visual_position = _spawn_position  # Snap visual to spawn position
-	sleeping = false
+	_visual_position = _spawn_position
 	print("[MainBall] Respawned at %s" % _spawn_position)
 
-	# Send RESPAWN event after timer (only host triggers this for main ball)
-	if LobbyManager.is_host():
-		LobbyManager.send_ball_respawn("main", _spawn_position)
+	# Send RESPAWN event (server will update state)
+	LobbyManager.send_ball_respawn("main", _spawn_position)
 
 # Apply network sync during physics step (only runs on host - non-host is frozen)
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
@@ -140,7 +150,7 @@ func handle_remote_death() -> void:
 	_visual_position = global_position
 
 func handle_remote_respawn(spawn_pos: Vector2) -> void:
-	"""Called when host reports the main ball respawned."""
+	"""Called when server reports the main ball respawned."""
 	print("[MainBall] Remote respawn at %s" % spawn_pos)
 
 	# Clear interpolation buffer to prevent sliding
@@ -150,13 +160,13 @@ func handle_remote_respawn(spawn_pos: Vector2) -> void:
 	if spawn_pos != Vector2.ZERO:
 		_spawn_position = spawn_pos
 
-	# Directly set position (non-host is frozen, no physics)
+	# Directly set position
 	global_position = spawn_pos
 	_visual_position = spawn_pos
 
 	# Restore visibility and collision
 	visible = true
-	# Non-host stays frozen - they use pure interpolation
+	# Stay frozen - server runs physics
 	if _stored_collision_layer != 0:
 		collision_layer = _stored_collision_layer
 		collision_mask = _stored_collision_mask
@@ -186,11 +196,11 @@ func _on_body_entered(body: Node) -> void:
 		wall_sound.volume_db = volume
 		wall_sound.play()
 
-	# Only host handles main ball collision (or debug mode with no lobby)
-	if not LobbyManager.is_host() and not LobbyManager.get_lobby_id().is_empty():
-		return
-
-	print("[MainBall] Touched: %s" % body.name)
-	# Check if it's a fire obstacle (by name or group)
-	if body.name.begins_with("Fire") or body.is_in_group("fire"):
-		respawn()
+	# On clients: physics is frozen, so this won't be called for collisions
+	# On server: this handles collision detection
+	# Debug mode (no lobby): handle locally
+	if LobbyManager.get_lobby_id().is_empty():
+		# Debug mode - handle locally
+		if body.name.begins_with("Fire") or body.is_in_group("fire"):
+			respawn()
+	# Note: On dedicated server, collisions are handled by server_game.gd
