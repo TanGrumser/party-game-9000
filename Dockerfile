@@ -13,6 +13,15 @@ RUN set -eux; \
     echo "No supported package manager found (apt-get/apk)"; exit 1; \
   fi
 
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl unzip \
+    libfontconfig1 \
+    libfreetype6 \
+    libx11-6 libxext6 libxrender1 libxi6 libxrandr2 libxinerama1 libxcursor1 \
+    libgl1 \
+ && rm -rf /var/lib/apt/lists/*
+
 # ---- install godot 4.6 (headless-capable binary) ----
 RUN set -eux; \
   mkdir -p /opt/godot && cd /opt/godot; \
