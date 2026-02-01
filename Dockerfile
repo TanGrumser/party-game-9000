@@ -21,7 +21,7 @@ RUN set -eux; \
   else \
     echo "No supported package manager found (apt-get/apk)"; exit 1; \
   fi
-  
+
 # ---- install godot 4.6 (headless-capable binary) ----
 RUN set -eux; \
   mkdir -p /opt/godot && cd /opt/godot; \
@@ -40,8 +40,12 @@ RUN bun install --frozen-lockfile --production
 FROM base AS release
 COPY --from=install /app/node_modules ./node_modules
 COPY . .
-RUN test -f /app/godot/project.godot
 
+RUN chown -R bun:bun /app
+RUN su -s /bin/sh bun -c '/usr/local/bin/godot --headless --path /app/godot --editor --quit'
+
+RUN test -f /app/godot/project.godot
+RUN test -d /app/godot/.godot/imported
 ENV NODE_ENV=production
 ENV PORT=3000
 
