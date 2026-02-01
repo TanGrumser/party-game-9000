@@ -45,7 +45,7 @@ export function startGameServer(lobbyId: string): boolean {
     const command = `${GODOT_PATH} --headless --path ${PROJECT_PATH} --scene ${LEVEL_SCENE} -- --server --lobby ${lobbyId}`;
     
     const proc = spawn({
-      cmd: ["/bin/sh", "-c", command],
+      cmd: ["/bin/bash", "-c", command],
       cwd: PROJECT_PATH,
       stdout: "pipe",
       stderr: "pipe",
