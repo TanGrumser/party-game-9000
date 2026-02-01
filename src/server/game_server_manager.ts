@@ -33,6 +33,7 @@ export function startGameServer(lobbyId: string): boolean {
         GODOT_PATH,
         "--headless",
         "--path", PROJECT_PATH,
+        "--scene", LEVEL_SCENE,
         "--",
         "--server",
         "--lobby", lobbyId,
