@@ -1,12 +1,14 @@
-[gd_scene format=3 uid="uid://cjwuu40up8f5x"]
+[gd_scene format=3 uid="uid://bj8ipvnghh7fv"]
 
-[ext_resource type="Texture2D" uid="uid://0ifi7t53w55x" path="res://sprites/grass_grid.png" id="1_5v30c"]
-[ext_resource type="Script" uid="uid://day8ynmdnale6" path="res://scripts/tiled_background.gd" id="2_script"]
+[ext_resource type="Script" uid="uid://day8ynmdnale6" path="res://scripts/tiled_background.gd" id="2_nmxtv"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_qqxga"]
+load_path = "res://.godot/imported/grass_grid.png-af3ab29fb3a0dc60123fc5799ae2e99f.ctex"
 
 [node name="TiledBackground" type="Sprite2D" unique_id=962446044]
 z_index = -100
 texture_repeat = 2
-texture = ExtResource("1_5v30c")
+texture = SubResource("CompressedTexture2D_qqxga")
 region_enabled = true
 region_rect = Rect2(0, 0, 5000, 5000)
-script = ExtResource("2_script")
+script = ExtResource("2_nmxtv")

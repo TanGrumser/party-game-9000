@@ -1,0 +1,153 @@
+[gd_scene format=3 uid="uid://003qiasvos2k"]
+
+[ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="1_qjcqe"]
+[ext_resource type="PackedScene" uid="uid://bj8ipvnghh7fv" path="res://scenes/tiled_background.tscn" id="2_jv3i5"]
+[ext_resource type="Texture2D" uid="uid://ccsaq3vo5hl0r" path="res://sprites/sandstone_hrid.png" id="3_ll25s"]
+[ext_resource type="Script" uid="uid://c5ywej7vstdd8" path="res://scripts/game_camera.gd" id="4_sk60w"]
+[ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="5_om4r1"]
+[ext_resource type="PackedScene" uid="uid://flamearm2024" path="res://scenes/flame_arm.tscn" id="6_171oe"]
+[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/water.tscn" id="7_e8wc3"]
+[ext_resource type="PackedScene" uid="uid://1f16j1ajp7j5" path="res://scenes/wall.tscn" id="8_ypn4w"]
+[ext_resource type="PackedScene" uid="uid://cxk6j8i1lp7f4" path="res://scenes/hole.tscn" id="9_jv3i5"]
+
+[node name="Game" type="Node2D" unique_id=147279626]
+script = ExtResource("1_qjcqe")
+
+[node name="TiledBackground" parent="." unique_id=1360794295 instance=ExtResource("2_jv3i5")]
+position = Vector2(934, 509)
+region_rect = Rect2(0, 0, 2000, 2000)
+
+[node name="TiledBackground3" parent="." unique_id=962446044 instance=ExtResource("2_jv3i5")]
+position = Vector2(2528, 867)
+region_rect = Rect2(0, 0, 1200, 1200)
+
+[node name="SandstoneBackground" parent="." unique_id=1446989789 instance=ExtResource("2_jv3i5")]
+z_index = -101
+position = Vector2(99, 449)
+texture = ExtResource("3_ll25s")
+region_rect = Rect2(0, 0, 100000, 10000)
+
+[node name="TiledBackground2" parent="." unique_id=911569418 instance=ExtResource("2_jv3i5")]
+position = Vector2(-766, 508)
+region_rect = Rect2(0, 0, 1400, 2000)
+
+[node name="GameCamera" type="Camera2D" parent="." unique_id=1234567890]
+position = Vector2(1633, -668)
+script = ExtResource("4_sk60w")
+padding = 600.0
+max_zoom = 0.5
+
+[node name="MainBall" parent="." unique_id=1634294921 instance=ExtResource("5_om4r1")]
+position = Vector2(1316, -112)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=506829652]
+
+[node name="UI" type="Control" parent="CanvasLayer" unique_id=1776302195]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="HBoxContainer" parent="CanvasLayer/UI" unique_id=313059629]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+
+[node name="LobbyLabel" type="Label" parent="CanvasLayer/UI/TopBar" unique_id=1047351573]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Lobby: XXXX | HOST"
+
+[node name="BackButton" type="Button" parent="CanvasLayer/UI/TopBar" unique_id=1831755182]
+layout_mode = 2
+text = "Back to Lobby"
+
+[node name="FlameArm" parent="." unique_id=342646634 instance=ExtResource("6_171oe")]
+position = Vector2(-459.99988, 297.00003)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="FlameArm2" parent="." unique_id=2104538855 instance=ExtResource("6_171oe")]
+position = Vector2(-1469.0001, 1038.0001)
+rotation = 6.2761865
+scale = Vector2(1, 1.05257)
+
+[node name="Hole" parent="." unique_id=167934659 instance=ExtResource("7_e8wc3")]
+position = Vector2(36.000004, 1108)
+
+[node name="Hole2" parent="." unique_id=780515745 instance=ExtResource("7_e8wc3")]
+position = Vector2(883, 626)
+
+[node name="Hole3" parent="." unique_id=148495525 instance=ExtResource("7_e8wc3")]
+position = Vector2(1558, 1132)
+
+[node name="Wall2" parent="." unique_id=1477277012 instance=ExtResource("8_ypn4w")]
+position = Vector2(-895, -504)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall11" parent="." unique_id=324884820 instance=ExtResource("8_ypn4w")]
+position = Vector2(271, -503)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall12" parent="." unique_id=480282708 instance=ExtResource("8_ypn4w")]
+position = Vector2(1453, -502)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall13" parent="." unique_id=917789698 instance=ExtResource("8_ypn4w")]
+position = Vector2(1991, -109.99999)
+rotation = 1.5707964
+scale = Vector2(1.0399985, 1)
+
+[node name="Wall7" parent="." unique_id=492765700 instance=ExtResource("8_ypn4w")]
+position = Vector2(271, 273)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall10" parent="." unique_id=2058699503 instance=ExtResource("8_ypn4w")]
+position = Vector2(1421, 281)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall8" parent="." unique_id=1970369120 instance=ExtResource("8_ypn4w")]
+position = Vector2(130, 1459)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall9" parent="." unique_id=1573905047 instance=ExtResource("8_ypn4w")]
+position = Vector2(1322, 1463)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall14" parent="." unique_id=72044891 instance=ExtResource("8_ypn4w")]
+position = Vector2(2511, 1460)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall15" parent="." unique_id=518095686 instance=ExtResource("8_ypn4w")]
+position = Vector2(2644, 297)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall16" parent="." unique_id=1019320990 instance=ExtResource("8_ypn4w")]
+position = Vector2(3169, 939)
+rotation = 1.5707964
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall6" parent="." unique_id=194160351 instance=ExtResource("8_ypn4w")]
+position = Vector2(-1028, 1463)
+scale = Vector2(1.2799988, 1)
+
+[node name="Wall4" parent="." unique_id=124754172 instance=ExtResource("8_ypn4w")]
+position = Vector2(-390, 282.00003)
+rotation = 1.5707964
+scale = Vector2(0.8400012, 1)
+
+[node name="Wall3" parent="." unique_id=1574774705 instance=ExtResource("8_ypn4w")]
+position = Vector2(-1544, 459)
+rotation = 1.5707964
+scale = Vector2(2.2399986, 1)
+
+[node name="Hole4" parent="." unique_id=637772861 instance=ExtResource("9_jv3i5")]
+position = Vector2(2522, 888)
+
+[connection signal="body_entered" from="MainBall" to="MainBall" method="_on_body_entered"]
+[connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]

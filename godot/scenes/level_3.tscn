@@ -1,0 +1,220 @@
+[gd_scene format=3 uid="uid://yib5j8rsw0fd"]
+
+[ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="1_wae8j"]
+[ext_resource type="PackedScene" uid="uid://bj8ipvnghh7fv" path="res://scenes/tiled_background.tscn" id="2_ha73p"]
+[ext_resource type="Texture2D" uid="uid://cb6wl8pgg5x2v" path="res://sprites/level3.PNG" id="2_vcx5n"]
+[ext_resource type="PackedScene" uid="uid://cxk6j8i1lp7f4" path="res://scenes/hole.tscn" id="3_56dhn"]
+[ext_resource type="Texture2D" uid="uid://ccsaq3vo5hl0r" path="res://sprites/sandstone_hrid.png" id="3_vcx5n"]
+[ext_resource type="Script" uid="uid://c5ywej7vstdd8" path="res://scripts/game_camera.gd" id="4_56dhn"]
+[ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="5_ax3dk"]
+[ext_resource type="PackedScene" uid="uid://flamearm2024" path="res://scenes/flame_arm.tscn" id="6_q2dsb"]
+[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/water.tscn" id="7_p3r0x"]
+[ext_resource type="PackedScene" uid="uid://1f16j1ajp7j5" path="res://scenes/wall.tscn" id="8_5xqnf"]
+
+[node name="Game" type="Node2D" unique_id=147279626]
+script = ExtResource("1_wae8j")
+
+[node name="CanvasLayerHUD" type="CanvasLayer" parent="." unique_id=450493052]
+
+[node name="Panel" type="Panel" parent="CanvasLayerHUD" unique_id=800517215]
+modulate = Color(1, 1, 1, 0.5803922)
+offset_left = 483.0
+offset_top = 833.0
+offset_right = 687.0
+offset_bottom = 991.0
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerHUD/Panel" unique_id=1151592072]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 517.0
+offset_bottom = 517.0
+
+[node name="SubViewport" type="SubViewport" parent="CanvasLayerHUD/Panel/SubViewportContainer" unique_id=1155684625]
+transparent_bg = true
+handle_input_locally = false
+render_target_update_mode = 4
+
+[node name="Node2D" type="Node2D" parent="CanvasLayerHUD/Panel/SubViewportContainer/SubViewport" unique_id=49345901]
+position = Vector2(-8, 1)
+
+[node name="Sprite2D" type="Sprite2D" parent="CanvasLayerHUD/Panel/SubViewportContainer/SubViewport/Node2D" unique_id=1120344232]
+modulate = Color(1, 1, 1, 0.7176471)
+position = Vector2(105, 74.00003)
+scale = Vector2(0.20610689, 0.19754766)
+texture = ExtResource("2_vcx5n")
+
+[node name="SandstoneBackground" parent="." unique_id=1446989789 instance=ExtResource("2_ha73p")]
+z_index = -101
+position = Vector2(206, 425)
+texture = ExtResource("3_vcx5n")
+region_rect = Rect2(0, 0, 100000, 10000)
+
+[node name="TiledBackground4" parent="." unique_id=962446044 instance=ExtResource("2_ha73p")]
+position = Vector2(1348, 421)
+region_rect = Rect2(0, 0, 3000, 4100)
+
+[node name="TiledBackground2" parent="." unique_id=911569418 instance=ExtResource("2_ha73p")]
+position = Vector2(-966, 411)
+region_rect = Rect2(0, 0, 3000, 4100)
+
+[node name="GameCamera" type="Camera2D" parent="." unique_id=1234567890]
+position = Vector2(1633, -668)
+script = ExtResource("4_56dhn")
+padding = 600.0
+max_zoom = 0.5
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=506829652]
+
+[node name="UI" type="Control" parent="CanvasLayer" unique_id=1776302195]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -161.0
+offset_top = -143.0
+offset_right = -161.0
+offset_bottom = -143.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="HBoxContainer" parent="CanvasLayer/UI" unique_id=313059629]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+
+[node name="LobbyLabel" type="Label" parent="CanvasLayer/UI/TopBar" unique_id=1047351573]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Lobby: XXXX | HOST"
+
+[node name="BackButton" type="Button" parent="CanvasLayer/UI/TopBar" unique_id=1831755182]
+layout_mode = 2
+text = "Back to Lobby"
+
+[node name="Hole4" parent="." unique_id=1517645592 instance=ExtResource("7_p3r0x")]
+position = Vector2(386.00012, 906)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Hole6" parent="." unique_id=2136023873 instance=ExtResource("7_p3r0x")]
+position = Vector2(1347.9995, 994)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Hole5" parent="." unique_id=479603881 instance=ExtResource("7_p3r0x")]
+position = Vector2(815.9995, 1816)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Wall32" parent="." unique_id=226624546 instance=ExtResource("8_5xqnf")]
+position = Vector2(-1194.0001, -1706)
+scale = Vector2(3, 1)
+
+[node name="Wall3" parent="." unique_id=1574774705 instance=ExtResource("8_5xqnf")]
+position = Vector2(-2509, -596.00006)
+rotation = 1.5707964
+scale = Vector2(2.2399986, 1)
+
+[node name="MainBall" parent="." unique_id=1634294921 instance=ExtResource("5_ax3dk")]
+position = Vector2(1994, 1545)
+
+[node name="Wall4" parent="." unique_id=2066103288 instance=ExtResource("8_5xqnf")]
+position = Vector2(131, -263)
+rotation = 1.5707964
+scale = Vector2(1.5, 1)
+
+[node name="Wall34" parent="." unique_id=239435959 instance=ExtResource("8_5xqnf")]
+position = Vector2(1527.9999, -1689)
+scale = Vector2(3, 1)
+
+[node name="Wall5" parent="." unique_id=1174799612 instance=ExtResource("8_5xqnf")]
+position = Vector2(2836, -628.99994)
+rotation = 1.5707964
+scale = Vector2(2.2399986, 1)
+
+[node name="Wall39" parent="." unique_id=156940240 instance=ExtResource("8_5xqnf")]
+position = Vector2(754, 399)
+scale = Vector2(1.5, 1)
+
+[node name="Wall6" parent="." unique_id=1229612490 instance=ExtResource("8_5xqnf")]
+position = Vector2(2829, 1459)
+rotation = 1.5707964
+scale = Vector2(2.2399986, 1)
+
+[node name="Wall40" parent="." unique_id=2014688197 instance=ExtResource("8_5xqnf")]
+position = Vector2(1511, 2481)
+scale = Vector2(3, 1)
+
+[node name="Wall41" parent="." unique_id=1199913114 instance=ExtResource("8_5xqnf")]
+position = Vector2(-1159.0001, 2481)
+scale = Vector2(3, 1)
+
+[node name="Wall11" parent="." unique_id=1414162139 instance=ExtResource("8_5xqnf")]
+position = Vector2(-2509, 1445.0001)
+rotation = 1.5707964
+scale = Vector2(2.4, 1)
+
+[node name="FlameArm" parent="." unique_id=504908000 instance=ExtResource("6_q2dsb")]
+position = Vector2(-349.00003, 667)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="FlameArm2" parent="." unique_id=1141337300 instance=ExtResource("6_q2dsb")]
+position = Vector2(-2077.0002, 719)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="FlameArm3" parent="." unique_id=4914146 instance=ExtResource("6_q2dsb")]
+position = Vector2(-362, 1175.0001)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="FlameArm4" parent="." unique_id=1997304709 instance=ExtResource("6_q2dsb")]
+position = Vector2(-2059.0002, 1801)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="Wall33" parent="." unique_id=324884820 instance=ExtResource("8_5xqnf")]
+position = Vector2(-1101.0004, -441.99976)
+rotation = -2.3561945
+scale = Vector2(1.8, 1)
+
+[node name="FlameArm5" parent="." unique_id=1985804679 instance=ExtResource("6_q2dsb")]
+position = Vector2(1500.0001, -466.9999)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="FlameArm6" parent="." unique_id=1329406419 instance=ExtResource("6_q2dsb")]
+position = Vector2(-362, 1680.0001)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="FlameArm7" parent="." unique_id=371093352 instance=ExtResource("6_q2dsb")]
+position = Vector2(-354, 2192)
+rotation = 3.1405625
+scale = Vector2(1, 1.05257)
+
+[node name="Hole7" parent="." unique_id=493106175 instance=ExtResource("7_p3r0x")]
+position = Vector2(2151, -455)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Hole8" parent="." unique_id=860705958 instance=ExtResource("7_p3r0x")]
+position = Vector2(-868.9995, -854)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Hole" parent="." unique_id=167934659 instance=ExtResource("3_56dhn")]
+position = Vector2(-1470, 1258)
+
+[connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]
+[connection signal="body_entered" from="MainBall" to="MainBall" method="_on_body_entered"]

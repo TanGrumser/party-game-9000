@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://cnb0g4hwqy52w"]
+
+[ext_resource type="Texture2D" uid="uid://dj075frjbbcvy" path="res://sprites/flag.png" id="1_jbojv"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jbojv"]
+size = Vector2(270, 411)
+
+[node name="Goal Post" type="Area2D" unique_id=1590191590]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1736504207]
+position = Vector2(32, -17.5)
+shape = SubResource("RectangleShape2D_jbojv")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1817060433]
+position = Vector2(47, -29)
+scale = Vector2(0.48000002, 0.48000002)
+texture = ExtResource("1_jbojv")

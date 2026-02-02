@@ -1,16 +1,48 @@
 [gd_scene format=3 uid="uid://fg7w65tt38tl"]
 
 [ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="1_ne2mo"]
-[ext_resource type="PackedScene" path="res://scenes/tiled_background.tscn" id="2_6cvei"]
+[ext_resource type="PackedScene" uid="uid://bj8ipvnghh7fv" path="res://scenes/tiled_background.tscn" id="2_6cvei"]
+[ext_resource type="Texture2D" uid="uid://bg1l0ml8wm6j5" path="res://sprites/level2.PNG" id="2_que50"]
 [ext_resource type="Texture2D" uid="uid://ccsaq3vo5hl0r" path="res://sprites/sandstone_hrid.png" id="3_que50"]
 [ext_resource type="Script" uid="uid://c5ywej7vstdd8" path="res://scripts/game_camera.gd" id="4_hey2k"]
 [ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="5_172wr"]
-[ext_resource type="PackedScene" path="res://scenes/flame_arm.tscn" id="6_g2hoc"]
-[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/hole.tscn" id="7_fldb1"]
+[ext_resource type="PackedScene" uid="uid://flamearm2024" path="res://scenes/flame_arm.tscn" id="6_g2hoc"]
+[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/water.tscn" id="7_fldb1"]
 [ext_resource type="PackedScene" uid="uid://1f16j1ajp7j5" path="res://scenes/wall.tscn" id="8_guvtl"]
+[ext_resource type="PackedScene" uid="uid://cxk6j8i1lp7f4" path="res://scenes/hole.tscn" id="9_6cvei"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
 script = ExtResource("1_ne2mo")
+
+[node name="CanvasLayerHUD" type="CanvasLayer" parent="." unique_id=976594969]
+
+[node name="Panel" type="Panel" parent="CanvasLayerHUD" unique_id=1859697610]
+modulate = Color(1, 1, 1, 0.5803922)
+offset_left = 478.0
+offset_top = 785.0
+offset_right = 682.0
+offset_bottom = 943.0
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerHUD/Panel" unique_id=1044049714]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 517.0
+offset_bottom = 517.0
+
+[node name="SubViewport" type="SubViewport" parent="CanvasLayerHUD/Panel/SubViewportContainer" unique_id=249428041]
+transparent_bg = true
+handle_input_locally = false
+render_target_update_mode = 4
+
+[node name="Node2D" type="Node2D" parent="CanvasLayerHUD/Panel/SubViewportContainer/SubViewport" unique_id=2013863128]
+position = Vector2(-8, 1)
+
+[node name="Sprite2D" type="Sprite2D" parent="CanvasLayerHUD/Panel/SubViewportContainer/SubViewport/Node2D" unique_id=1601447470]
+modulate = Color(1, 1, 1, 0.7176471)
+position = Vector2(105, 74.00003)
+scale = Vector2(0.20610689, 0.19754766)
+texture = ExtResource("2_que50")
 
 [node name="TiledBackground" parent="." unique_id=1360794295 instance=ExtResource("2_6cvei")]
 position = Vector2(934, 509)
@@ -70,7 +102,7 @@ text = "Back to Lobby"
 position = Vector2(983, 2597)
 scale = Vector2(1, 1.05257)
 
-[node name="Hole" parent="." unique_id=167934659 instance=ExtResource("7_fldb1")]
+[node name="Hole" parent="." unique_id=1400972398 instance=ExtResource("7_fldb1")]
 position = Vector2(284, 493)
 
 [node name="Hole2" parent="." unique_id=780515745 instance=ExtResource("7_fldb1")]
@@ -118,7 +150,7 @@ rotation = 1.5707964
 scale = Vector2(1.04, 1)
 
 [node name="Wall13" parent="." unique_id=917789698 instance=ExtResource("8_guvtl")]
-position = Vector2(1991, -109.99999)
+position = Vector2(1985, -15)
 rotation = 1.5707964
 scale = Vector2(1.0399985, 1)
 
@@ -170,6 +202,9 @@ rotation = 1.5707964
 [node name="Wall5" parent="." unique_id=1862915899 instance=ExtResource("8_guvtl")]
 position = Vector2(7, 3009)
 rotation = 1.5707964
+
+[node name="Hole9" parent="." unique_id=2025745154 instance=ExtResource("9_6cvei")]
+position = Vector2(1679, 3119)
 
 [connection signal="body_entered" from="MainBall" to="MainBall" method="_on_body_entered"]
 [connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]

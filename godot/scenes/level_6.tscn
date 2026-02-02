@@ -1,0 +1,215 @@
+[gd_scene format=3 uid="uid://ble4w3f1fshtv"]
+
+[ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="1_fidgd"]
+[ext_resource type="Texture2D" uid="uid://kd8r6xs7syu3" path="res://sprites/level6.PNG" id="2_kuph3"]
+[ext_resource type="Texture2D" uid="uid://ccsaq3vo5hl0r" path="res://sprites/sandstone_hrid.png" id="3_fidgd"]
+[ext_resource type="PackedScene" uid="uid://bj8ipvnghh7fv" path="res://scenes/tiled_background.tscn" id="3_kuph3"]
+[ext_resource type="PackedScene" uid="uid://cxecdjih7gfho" path="res://scenes/tiled_background_triangle.tscn" id="3_uwnnm"]
+[ext_resource type="Script" uid="uid://c5ywej7vstdd8" path="res://scripts/game_camera.gd" id="5_wps6d"]
+[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/water.tscn" id="6_2hef4"]
+[ext_resource type="PackedScene" uid="uid://1f16j1ajp7j5" path="res://scenes/wall.tscn" id="7_lk3oq"]
+[ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="8_hrd5w"]
+[ext_resource type="PackedScene" uid="uid://cxk6j8i1lp7f4" path="res://scenes/hole.tscn" id="9_isi3j"]
+
+[node name="Game" type="Node2D" unique_id=147279626]
+script = ExtResource("1_fidgd")
+
+[node name="CanvasLayerHUD" type="CanvasLayer" parent="." unique_id=2034487555]
+
+[node name="Panel" type="Panel" parent="CanvasLayerHUD" unique_id=911779679]
+modulate = Color(1, 1, 1, 0.5803922)
+offset_left = 475.0
+offset_top = 784.0
+offset_right = 679.0
+offset_bottom = 942.0
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerHUD/Panel" unique_id=1333356417]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 517.0
+offset_bottom = 517.0
+
+[node name="SubViewport" type="SubViewport" parent="CanvasLayerHUD/Panel/SubViewportContainer" unique_id=1115066884]
+transparent_bg = true
+handle_input_locally = false
+render_target_update_mode = 4
+
+[node name="Node2D" type="Node2D" parent="CanvasLayerHUD/Panel/SubViewportContainer/SubViewport" unique_id=623864102]
+position = Vector2(-8, 1)
+
+[node name="Sprite2D" type="Sprite2D" parent="CanvasLayerHUD/Panel/SubViewportContainer/SubViewport/Node2D" unique_id=504816841]
+modulate = Color(1, 1, 1, 0.7176471)
+position = Vector2(105, 74.00003)
+scale = Vector2(0.20610689, 0.19754766)
+texture = ExtResource("2_kuph3")
+
+[node name="SandstoneBackground" parent="." unique_id=962446044 instance=ExtResource("3_kuph3")]
+z_index = -101
+position = Vector2(-6980, 440)
+texture = ExtResource("3_fidgd")
+region_rect = Rect2(0, 0, 100000, 10000)
+
+[node name="TiledBackground3" parent="." unique_id=43420505 instance=ExtResource("3_kuph3")]
+position = Vector2(-6629, 2826)
+region_rect = Rect2(0, 0, 2000, 2000)
+
+[node name="TiledBackground2" parent="." unique_id=911569418 instance=ExtResource("3_kuph3")]
+position = Vector2(-7464, 1999)
+region_rect = Rect2(0, 0, 3000, 3800)
+
+[node name="TiledBackground4" parent="." unique_id=280602416 instance=ExtResource("3_kuph3")]
+position = Vector2(-6869, -216)
+region_rect = Rect2(0, 0, 1500, 1600)
+
+[node name="StaticBody2D6" parent="." unique_id=1923388352 instance=ExtResource("3_uwnnm")]
+position = Vector2(-8454, -262)
+rotation = -1.5707964
+scale = Vector2(0.2, 0.20000002)
+
+[node name="StaticBody2D7" parent="." unique_id=2061009835 instance=ExtResource("3_uwnnm")]
+position = Vector2(-7960, -272)
+rotation = -1.5707964
+scale = Vector2(0.2, 0.20000002)
+
+[node name="StaticBody2D8" parent="." unique_id=1808388918 instance=ExtResource("3_uwnnm")]
+position = Vector2(-8083, -597)
+rotation = -1.5707964
+scale = Vector2(0.2, 0.20000002)
+
+[node name="StaticBody2D5" parent="." unique_id=351771284 instance=ExtResource("3_uwnnm")]
+position = Vector2(-5770, -564.99994)
+rotation = 1.5707964
+scale = Vector2(0.2, 0.2)
+
+[node name="StaticBody2D9" parent="." unique_id=650365620 instance=ExtResource("3_uwnnm")]
+position = Vector2(-5326, -564.99994)
+rotation = 1.5707964
+scale = Vector2(0.2, 0.2)
+
+[node name="StaticBody2D10" parent="." unique_id=1331117815 instance=ExtResource("3_uwnnm")]
+position = Vector2(-5759, -185.99998)
+rotation = 1.5707964
+scale = Vector2(0.2, 0.2)
+
+[node name="GameCamera" type="Camera2D" parent="." unique_id=1234567890]
+position = Vector2(1633, -668)
+script = ExtResource("5_wps6d")
+padding = 600.0
+max_zoom = 0.5
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=506829652]
+
+[node name="UI" type="Control" parent="CanvasLayer" unique_id=1776302195]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="HBoxContainer" parent="CanvasLayer/UI" unique_id=313059629]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+
+[node name="LobbyLabel" type="Label" parent="CanvasLayer/UI/TopBar" unique_id=1047351573]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Lobby: XXXX | HOST"
+
+[node name="BackButton" type="Button" parent="CanvasLayer/UI/TopBar" unique_id=1831755182]
+layout_mode = 2
+text = "Back to Lobby"
+
+[node name="Hole4" parent="." unique_id=1517645592 instance=ExtResource("6_2hef4")]
+position = Vector2(-8443, 557)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Hole6" parent="." unique_id=2136023873 instance=ExtResource("6_2hef4")]
+position = Vector2(-6468.9995, 1343)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Hole5" parent="." unique_id=479603881 instance=ExtResource("6_2hef4")]
+position = Vector2(-6146, 2444)
+scale = Vector2(1.8800012, 1.8399994)
+gravity_radius = 400.0
+fall_radius = 250.0
+
+[node name="Wall9" parent="." unique_id=610203918 instance=ExtResource("7_lk3oq")]
+position = Vector2(-5990, 1034)
+rotation = 1.5707964
+scale = Vector2(1.91, 1)
+
+[node name="Wall8" parent="." unique_id=37598573 instance=ExtResource("7_lk3oq")]
+position = Vector2(-7323.001, 3816)
+scale = Vector2(3.5, 1)
+
+[node name="Wall10" parent="." unique_id=324884820 instance=ExtResource("7_lk3oq")]
+position = Vector2(-6357, 1852)
+scale = Vector2(1.8, 1)
+
+[node name="Wall7" parent="." unique_id=492765700 instance=ExtResource("7_lk3oq")]
+position = Vector2(-6251, -1093)
+scale = Vector2(3.2, 1)
+
+[node name="Wall31" parent="." unique_id=1212607788 instance=ExtResource("7_lk3oq")]
+position = Vector2(-8308.999, 2635)
+rotation = -3.1415925
+scale = Vector2(1.5, 0.84)
+
+[node name="Wall19" parent="." unique_id=1420040670 instance=ExtResource("7_lk3oq")]
+position = Vector2(-8926, 2041)
+rotation = -1.5707961
+scale = Vector2(4, 1)
+
+[node name="Wall36" parent="." unique_id=1153519620 instance=ExtResource("7_lk3oq")]
+position = Vector2(-5867, -36.999878)
+rotation = -0.7853982
+scale = Vector2(3.159, 1)
+
+[node name="Wall38" parent="." unique_id=620570988 instance=ExtResource("7_lk3oq")]
+position = Vector2(-6365.0005, 3151.001)
+rotation = 0.7853982
+scale = Vector2(2, 1)
+
+[node name="Wall37" parent="." unique_id=1255439984 instance=ExtResource("7_lk3oq")]
+position = Vector2(-8302, 2010)
+rotation = -2.3561945
+scale = Vector2(2, 1)
+
+[node name="Wall35" parent="." unique_id=50453120 instance=ExtResource("7_lk3oq")]
+position = Vector2(-7530, 926)
+rotation = -0.78714347
+scale = Vector2(2, 1)
+
+[node name="Wall33" parent="." unique_id=2300990 instance=ExtResource("7_lk3oq")]
+position = Vector2(-8333, -458.00006)
+rotation = -0.7853982
+scale = Vector2(1.9, 1)
+
+[node name="Wall3" parent="." unique_id=1574774705 instance=ExtResource("7_lk3oq")]
+position = Vector2(-5611, 2871)
+rotation = 1.5707964
+scale = Vector2(2.2399986, 1)
+
+[node name="MainBall" parent="." unique_id=1634294921 instance=ExtResource("8_hrd5w")]
+position = Vector2(-7568, -462)
+
+[node name="Hole" parent="." unique_id=1449346324 instance=ExtResource("9_isi3j")]
+position = Vector2(-8339, 3285)
+
+[node name="Wall39" parent="." unique_id=55468453 instance=ExtResource("7_lk3oq")]
+position = Vector2(-7404, 90)
+rotation = -0.78714347
+scale = Vector2(2, 1)
+
+[connection signal="pressed" from="CanvasLayer/UI/TopBar/BackButton" to="." method="_on_back_pressed"]
+[connection signal="body_entered" from="MainBall" to="MainBall" method="_on_body_entered"]

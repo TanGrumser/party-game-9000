@@ -1,7 +1,11 @@
-[gd_scene format=3 uid="uid://cxk6j8i1lp7f4"]
+[gd_scene format=3 uid="uid://ba7hihfr2iqc"]
 
+[ext_resource type="Shader" uid="uid://mmbho6l25x60" path="res://scenes/hole.gdshader" id="2_a2ebe"]
 [ext_resource type="Script" uid="uid://d34ryq4ubeulw" path="res://scripts/hole.gd" id="2_hole"]
-[ext_resource type="Texture2D" uid="uid://dj075frjbbcvy" path="res://sprites/flag.png" id="2_iyxdx"]
+[ext_resource type="Texture2D" uid="uid://jnea4fhg5ncx" path="res://sprites/water.png" id="2_iyxdx"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_spnof"]
+shader = ExtResource("2_a2ebe")
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_gravity"]
 radius = 112.15862
@@ -13,16 +17,17 @@ gravity_radius = 200.0
 fall_radius = 10.0
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=682103374]
-position = Vector2(25, -83)
-scale = Vector2(0.42575404, 0.40898877)
+modulate = Color(1, 1, 1, 0.84313726)
+material = SubResource("ShaderMaterial_spnof")
+position = Vector2(7.0000067, 7.499998)
+scale = Vector2(0.95546556, 0.95918363)
 texture = ExtResource("2_iyxdx")
+region_enabled = true
 region_rect = Rect2(-1, 2, 249.5, 245)
 
 [node name="GravityArea" type="Area2D" parent="." unique_id=2144260350]
-visible = false
 collision_layer = 0
 monitorable = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="GravityArea" unique_id=1420198182]
-visible = false
 shape = SubResource("CircleShape2D_gravity")

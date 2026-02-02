@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://bn8tghrobmhnk" path="res://scripts/game.gd" id="2_game"]
 [ext_resource type="PackedScene" uid="uid://bfk3xgfqvxr6h" path="res://scenes/main_ball.tscn" id="4_78awf"]
-[ext_resource type="Script" path="res://scripts/game_camera.gd" id="5_camera"]
-[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/hole.tscn" id="5_s0nni"]
-[ext_resource type="PackedScene" path="res://scenes/tiled_background.tscn" id="6_bg"]
+[ext_resource type="Script" uid="uid://c5ywej7vstdd8" path="res://scripts/game_camera.gd" id="5_camera"]
+[ext_resource type="PackedScene" uid="uid://ba7hihfr2iqc" path="res://scenes/water.tscn" id="5_s0nni"]
+[ext_resource type="PackedScene" uid="uid://bj8ipvnghh7fv" path="res://scenes/tiled_background.tscn" id="6_bg"]
 
 [node name="Game" type="Node2D" unique_id=147279626]
 script = ExtResource("2_game")
